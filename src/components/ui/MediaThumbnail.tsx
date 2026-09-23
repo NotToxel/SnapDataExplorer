@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Image as ImageIcon, Cloud, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { convertFileSrc } from '@tauri-apps/api/core';
-import { cn } from '../../lib/utils';
+import { cn, safeConvertFileSrc } from '../../lib/utils';
 import { DownloadStatus, DownloadProgress } from '../../types';
 
 interface MediaThumbnailProps {
@@ -35,15 +34,10 @@ export const MediaThumbnail = React.memo(({
 
     // Memoize the source to prevent re-calculations
     const src = useMemo(() => {
-        if (!path && !remoteUrl) return null;
         if (path) {
-            try {
-                return convertFileSrc(path);
-            } catch {
-                return path;
-            }
+            return safeConvertFileSrc(path) ?? null;
         }
-        return remoteUrl;
+        return remoteUrl ?? null;
     }, [path, remoteUrl]);
 
     const renderStatusIcon = () => {

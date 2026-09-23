@@ -185,6 +185,19 @@ impl DatabaseManager {
             )?;
         }
 
+        // 4. Sanitize legacy UNC prefixes in stored paths (Windows compatibility, safe on macOS/Linux)
+        let _ = conn.execute_batch(
+            r#"
+            UPDATE events 
+            SET media_references = replace(replace(media_references, '\\\\?\\', ''), '\\?\', '')
+            WHERE media_references LIKE '%\?\%';
+
+            UPDATE memories 
+            SET media_path = replace(media_path, '\\?\', '')
+            WHERE media_path LIKE '%\?\%';
+            "#
+        );
+
         Ok(())
     }
 
@@ -248,75 +261,130 @@ impl DatabaseManager {
     }
 
     pub fn batch_insert_events(&self, events: &[Event], export_id: &str) -> AppResult<()> {
-        let mut conn = self.conn()?;
-        let tx = conn.transaction()?;
-        {
-            let mut event_stmt = tx.prepare(
-                "INSERT OR REPLACE INTO events (id, timestamp, sender, export_id, conversation_id, content, event_type, media_references, metadata)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
-            )?;
-            // FTS5 doesn't support REPLACE — delete any existing entry first, then insert
-            let mut fts_delete_stmt = tx.prepare("DELETE FROM events_fts WHERE event_id = ?1")?;
-            let mut fts_stmt = tx.prepare(
-                "INSERT INTO events_fts (content, event_id, conversation_id, sender) VALUES (?1, ?2, ?3, ?4)",
-            )?;
-            for event in events {
-                event_stmt.execute(params![
-                    event.id,
-                    event.timestamp.to_rfc3339(),
-                    event.sender,
-                    export_id,
-                    event.conversation_id,
-                    event.content,
-                    event.event_type,
-                    serde_json::to_string(&event.media_references).unwrap_or_else(|e| {
-                        log::warn!("Failed to serialize media_references for event {}: {}", event.id, e);
+        self.batch_insert_events_with_progress(events, export_id, |_, _| {})
+    }
+
+    pub fn batch_insert_events_with_progress<F>(
+        &self,
+        events: &[Event],
+        export_id: &str,
+        mut on_progress: F,
+    ) -> AppResult<()>
+    where
+        F: FnMut(usize, usize),
+    {
+        let total = events.len();
+        if total == 0 {
+            on_progress(0, 0);
+            return Ok(());
+        }
+
+        const CHUNK_SIZE: usize = 2000;
+        let mut inserted = 0;
+
+        for chunk in events.chunks(CHUNK_SIZE) {
+            let mut conn = self.conn()?;
+            let tx = conn.transaction()?;
+            {
+                let mut event_stmt = tx.prepare_cached(
+                    "INSERT OR REPLACE INTO events (id, timestamp, sender, export_id, conversation_id, content, event_type, media_references, metadata)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
+                )?;
+                // FTS5 doesn't support REPLACE — delete any existing entry first, then insert
+                let mut fts_delete_stmt = tx.prepare_cached("DELETE FROM events_fts WHERE event_id = ?1")?;
+                let mut fts_stmt = tx.prepare_cached(
+                    "INSERT INTO events_fts (content, event_id, conversation_id, sender) VALUES (?1, ?2, ?3, ?4)",
+                )?;
+                for event in chunk {
+                    let media_refs_json = if event.media_references.is_empty() {
                         "[]".to_string()
-                    }),
-                    event.metadata
-                ])?;
-                if let Some(ref content) = event.content {
-                    if !content.trim().is_empty() {
-                        let _ = fts_delete_stmt.execute(params![event.id]);
-                        fts_stmt.execute(params![content, event.id, event.conversation_id, event.sender])?;
+                    } else {
+                        serde_json::to_string(&event.media_references).unwrap_or_else(|e| {
+                            log::warn!("Failed to serialize media_references for event {}: {}", event.id, e);
+                            "[]".to_string()
+                        })
+                    };
+
+                    event_stmt.execute(params![
+                        event.id,
+                        event.timestamp.to_rfc3339(),
+                        event.sender,
+                        export_id,
+                        event.conversation_id,
+                        event.content,
+                        event.event_type,
+                        media_refs_json,
+                        event.metadata
+                    ])?;
+                    if let Some(ref content) = event.content {
+                        if !content.trim().is_empty() {
+                            let _ = fts_delete_stmt.execute(params![event.id]);
+                            fts_stmt.execute(params![content, event.id, event.conversation_id, event.sender])?;
+                        }
                     }
                 }
             }
+            tx.commit()?;
+            inserted += chunk.len();
+            on_progress(inserted, total);
         }
-        tx.commit()?;
         Ok(())
     }
 
     pub fn batch_insert_memories(&self, memories: &[Memory]) -> AppResult<()> {
-        let mut conn = self.conn()?;
-        let tx = conn.transaction()?;
-        {
-            let mut stmt = tx.prepare(
-                "INSERT OR REPLACE INTO memories (id, timestamp, media_type, latitude, longitude, media_path, download_url, proxy_url, download_status, export_id)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
-            )?;
-            for memory in memories {
-                let status_str = match memory.download_status {
-                    crate::models::DownloadStatus::Pending => "Pending",
-                    crate::models::DownloadStatus::Downloading => "Downloading",
-                    crate::models::DownloadStatus::Downloaded => "Downloaded",
-                    crate::models::DownloadStatus::Failed => "Failed",
-                };
-                stmt.execute(params![
-                    memory.id,
-                    memory.timestamp.to_rfc3339(),
-                    memory.media_type,
-                    memory.latitude,
-                    memory.longitude,
-                    memory.media_path.as_ref().map(|p| p.to_string_lossy().to_string()),
-                    memory.download_url,
-                    memory.proxy_url,
-                    status_str,
-                    memory.export_id
-                ])?;
-            }
+        self.batch_insert_memories_with_progress(memories, |_, _| {})
+    }
+
+    pub fn batch_insert_memories_with_progress<F>(
+        &self,
+        memories: &[Memory],
+        mut on_progress: F,
+    ) -> AppResult<()>
+    where
+        F: FnMut(usize, usize),
+    {
+        let total = memories.len();
+        if total == 0 {
+            on_progress(0, 0);
+            return Ok(());
         }
-        tx.commit()?;
+
+        const CHUNK_SIZE: usize = 1000;
+        let mut inserted = 0;
+
+        for chunk in memories.chunks(CHUNK_SIZE) {
+            let mut conn = self.conn()?;
+            let tx = conn.transaction()?;
+            {
+                let mut stmt = tx.prepare_cached(
+                    "INSERT OR REPLACE INTO memories (id, timestamp, media_type, latitude, longitude, media_path, download_url, proxy_url, download_status, export_id)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
+                )?;
+                for memory in chunk {
+                    let status_str = match memory.download_status {
+                        crate::models::DownloadStatus::Pending => "Pending",
+                        crate::models::DownloadStatus::Downloading => "Downloading",
+                        crate::models::DownloadStatus::Downloaded => "Downloaded",
+                        crate::models::DownloadStatus::Failed => "Failed",
+                    };
+                    stmt.execute(params![
+                        memory.id,
+                        memory.timestamp.to_rfc3339(),
+                        memory.media_type,
+                        memory.latitude,
+                        memory.longitude,
+                        memory.media_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+                        memory.download_url,
+                        memory.proxy_url,
+                        status_str,
+                        memory.export_id
+                    ])?;
+                }
+            }
+            tx.commit()?;
+            inserted += chunk.len();
+            on_progress(inserted, total);
+        }
         Ok(())
     }
 

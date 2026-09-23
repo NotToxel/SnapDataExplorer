@@ -1,3 +1,16 @@
+## [1.0.2](https://github.com/KodyDennon/SnapDataExplorer/compare/v1.0.1...v1.0.2) (2026-09-23)
+
+### Features
+
+* **ingestion:** Real-time granular progress reporting during media linking, database saving, and memory processing with live message counts and percentage feedback.
+* **ui:** Dynamic version detection in sidebar and floating ingestion widget across non-dashboard views.
+
+### Performance & Bug Fixes
+
+* **ingestion:** Dramatically optimized JSON chat history merging from quadratic $O(N \cdot M)$ scans to logarithmic $O((N + M) \log N)$ binary partition searching, eliminating ingestion stalls.
+* **database:** Chunked event and memory insertions into batched transactions with cached statements and reduced JSON serialization overhead.
+* **media:** Removed redundant disk stat syscalls during media linking for instantly resolved disk files.
+
 ## [1.0.1](https://github.com/KodyDennon/SnapDataExplorer/compare/v1.0.0...v1.0.1) (2026-02-16)
 
 ### Bug Fixes

@@ -254,6 +254,31 @@ function App() {
       <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
       <Updater addToast={addToast} />
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
+
+      {/* Floating ingestion progress indicator when viewing other pages */}
+      {progress && activePage !== "dashboard" && (
+        <div
+          onClick={() => setActivePage("dashboard")}
+          className="fixed bottom-6 right-6 z-50 bg-surface-900/95 backdrop-blur-md border border-brand-500/40 shadow-2xl rounded-2xl p-4 max-w-sm w-full cursor-pointer hover:border-brand-400 transition-all text-white"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-brand-400 animate-ping" />
+              {progress.current_step}
+            </span>
+            <span className="font-mono text-xs font-black">
+              {Math.round(progress.progress * 100)}%
+            </span>
+          </div>
+          <div className="w-full bg-surface-800 rounded-full h-1.5 mb-2 overflow-hidden">
+            <div
+              className="bg-linear-to-r from-brand-500 to-accent-cyan h-full rounded-full transition-all duration-300"
+              style={{ width: `${progress.progress * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-surface-400 truncate">{progress.message}</p>
+        </div>
+      )}
     </div>
   );
 }

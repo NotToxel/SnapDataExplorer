@@ -56,12 +56,28 @@ impl MemoryDownloader {
             }
         }
 
-        let url = match &memory.download_url {
+        let url_candidate = memory.download_url.as_ref().or(memory.proxy_url.as_ref());
+        let url = match url_candidate {
             Some(url) => url,
             None => {
                 log::error!("No download URL for memory {}", memory.id);
                 return Ok(());
             }
+        };
+
+        // If the URL is a Snapchat proxy / dmd link, request the direct AWS S3 URL via POST
+        let final_url = if url.contains("app.snapchat.com/dmd") || url.contains("/dmd/memories") {
+            match self.client.post(url).send().await {
+                Ok(res) if res.status().is_success() => {
+                    match res.text().await {
+                        Ok(body) if body.trim().starts_with("http") => body.trim().to_string(),
+                        _ => url.clone(),
+                    }
+                }
+                _ => url.clone(),
+            }
+        } else {
+            url.clone()
         };
 
         // Determine file extension
@@ -89,7 +105,7 @@ impl MemoryDownloader {
         memory.download_status = DownloadStatus::Downloading;
         self.db.batch_insert_memories(&[memory.clone()])?;
 
-        let response = match self.client.get(url).send().await {
+        let response = match self.client.get(&final_url).send().await {
             Ok(res) => res,
             Err(e) => {
                 log::error!("Failed to start download for {}: {}", memory.id, e);
@@ -138,8 +154,9 @@ impl MemoryDownloader {
         file.flush().await?;
 
         // Update status to Downloaded
+        let clean_file_path = crate::ingestion::media_linker::clean_path(&file_path);
         memory.download_status = DownloadStatus::Downloaded;
-        memory.media_path = Some(file_path);
+        memory.media_path = Some(clean_file_path);
         self.db.batch_insert_memories(&[memory.clone()])?;
 
         self.app_handle

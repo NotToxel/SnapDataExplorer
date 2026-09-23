@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "framer-motion";
 import { PaginatedMedia, MediaStreamEntry, MediaViewerItem } from "../types";
-import { cn } from "../lib/utils";
+import { cn, safeConvertFileSrc } from "../lib/utils";
 import {
     X,
     Play,
@@ -115,7 +115,7 @@ export function ChillGallery({ onExit }: ChillGalleryProps) {
                 >
                     <div
                         className="absolute inset-0 bg-cover bg-center blur-[140px] scale-150 transition-all duration-2000"
-                        style={{ backgroundImage: hoveredItem ? `url(${convertFileSrc(hoveredItem.path)})` : 'none' }}
+                        style={{ backgroundImage: hoveredItem ? `url(${safeConvertFileSrc(hoveredItem.path)})` : 'none' }}
                     />
                     <div className="absolute inset-0 bg-linear-to-tr from-zinc-950 via-transparent to-zinc-950/50" />
                 </motion.div>
@@ -231,7 +231,7 @@ function GalleryItem({
     onMouseEnter: () => void,
     onMouseLeave: () => void
 }) {
-    const src = convertFileSrc(item.path);
+    const src = safeConvertFileSrc(item.path);
 
     // Optimized memoized styling
     const itemStyle = React.useMemo(() => ({

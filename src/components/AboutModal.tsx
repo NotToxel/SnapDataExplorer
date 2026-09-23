@@ -2,8 +2,7 @@ import { useUpdater } from "../hooks/useUpdater";
 import { Card, GhostLogo } from "./ui";
 import { X, Info, Shield, Github, Sparkles, RefreshCw, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getVersion } from "@tauri-apps/api/app";
-import { useEffect, useState } from "react";
+import { useAppVersion } from "../lib/version";
 import { cn } from "../lib/utils";
 
 interface AboutModalProps {
@@ -13,11 +12,7 @@ interface AboutModalProps {
 
 export function AboutModal({ isOpen, onClose }: AboutModalProps) {
   const { checking, downloading, progress, update, checkForUpdates, installUpdate } = useUpdater();
-  const [version, setVersion] = useState<string>("...");
-
-  useEffect(() => {
-    getVersion().then(setVersion);
-  }, []);
+  const version = useAppVersion();
 
   if (!isOpen) return null;
 

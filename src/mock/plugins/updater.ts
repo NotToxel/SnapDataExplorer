@@ -1,6 +1,8 @@
+import packageJson from "../../../package.json";
+
 export const check = async () => null;
 export class Update {
-  version = "1.0.0";
+  version = packageJson.version;
   date = new Date().toISOString();
   body = "Mock update";
   async downloadAndInstall() {

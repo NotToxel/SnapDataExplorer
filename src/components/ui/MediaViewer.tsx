@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Download, Play, Image as ImageIcon, FolderOpen, MapPin, Calendar, User, AlertCircle } from 'lucide-react';
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { cn } from '../../lib/utils';
+import { invoke } from '@tauri-apps/api/core';
+import { cn, safeConvertFileSrc } from '../../lib/utils';
 import { MediaViewerItem } from '../../types';
 
 interface MediaViewerProps {
@@ -50,7 +50,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
 
     const getMediaSrc = (item: MediaViewerItem) => {
         const path = item.media_path || item.path || (item.media_references?.[0]);
-        if (path) return convertFileSrc(path);
+        if (path) return safeConvertFileSrc(path);
         return item.download_url || item.proxy_url;
     };
 

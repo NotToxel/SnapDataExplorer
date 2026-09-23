@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { invoke } from "@tauri-apps/api/core";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 import { Event as Message, MessagePage, MediaViewerItem } from "../types";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Toast } from "../hooks/useToast";
 import { MediaViewer } from "./ui/MediaViewer";
@@ -17,7 +16,7 @@ import {
   ChevronDown,
   Info
 } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, safeConvertFileSrc } from "../lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 
 function MediaFallback({ type }: { type: "image" | "video" | "snap" | "snap-video" }) {
@@ -99,13 +98,7 @@ const MessageItem = React.memo(({
 }) => {
   // Pre-compute media sources to avoid logic in render
   const mediaSources = useMemo(() => {
-    return msg.media_references.map(ref => {
-      try {
-        return convertFileSrc(ref);
-      } catch {
-        return ref;
-      }
-    });
+    return msg.media_references.map(ref => safeConvertFileSrc(ref) || ref);
   }, [msg.media_references]);
 
   function isImageFile(path: string): boolean {

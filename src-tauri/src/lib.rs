@@ -293,35 +293,74 @@ async fn reconstruct_from_path(
                 let mut merged_ids = 0;
                 let mut new_events_added = 0;
 
-                // Build index for O(1) lookup by (conversation_id, sender) instead of O(n) scan
-                let mut event_index: HashMap<(String, String), Vec<usize>> = HashMap::new();
+                // Build index sorted by timestamp for O(log N) lookup:
+                // both by exact (conversation_id, sender) and fallback by sender alone
+                let mut event_index: HashMap<(String, String), Vec<(i64, usize)>> = HashMap::new();
+                let mut sender_index: HashMap<String, Vec<(i64, usize)>> = HashMap::new();
                 for (idx, event) in all_events.iter().enumerate() {
+                    let ts = event.timestamp.timestamp();
+                    sender_index.entry(event.sender.clone()).or_default().push((ts, idx));
                     if let Some(cid) = &event.conversation_id {
                         event_index
                             .entry((cid.clone(), event.sender.clone()))
                             .or_default()
-                            .push(idx);
+                            .push((ts, idx));
                     }
+                }
+                for list in event_index.values_mut() {
+                    list.sort_unstable_by_key(|&(ts, _)| ts);
+                }
+                for list in sender_index.values_mut() {
+                    list.sort_unstable_by_key(|&(ts, _)| ts);
                 }
 
                 let mut new_convos = Vec::new();
                 let mut new_convo_ids = std::collections::HashSet::new();
                 let mut new_events = Vec::new();
+                let mut processed_json = 0;
+                let report_interval = (json_event_count / 10).max(2000);
 
                 for (convo_key, json_events) in json_conversations {
                     for json_event in json_events {
-                        // Look up candidates by (conversation_id, sender) in O(1)
+                        processed_json += 1;
+                        if processed_json % report_interval == 0 {
+                            let pct = 0.38 + (processed_json as f32 / json_event_count.max(1) as f32) * 0.04;
+                            let _ = app_handle.emit(
+                                "ingestion-progress",
+                                IngestionProgress {
+                                    export_id: export_id.clone(),
+                                    current_step: "Parsing Chat JSON".to_string(),
+                                    progress: pct,
+                                    message: format!("Matching chat metadata: {} / {}...", processed_json, json_event_count),
+                                },
+                            );
+                        }
+
+                        let target_ts = json_event.timestamp.timestamp();
+                        let find_in_candidates = |candidates: &[(i64, usize)]| -> Option<usize> {
+                            let start_idx = candidates.partition_point(|&(ts, _)| ts < target_ts - 2);
+                            candidates[start_idx..]
+                                .iter()
+                                .take_while(|&&(ts, _)| ts <= target_ts + 2)
+                                .find(|&&(_, idx)| all_events[idx].metadata.is_none())
+                                .map(|&(_, idx)| idx)
+                        };
+
                         let key = (convo_key.clone(), json_event.sender.clone());
-                        let matched_idx = event_index.get(&key).and_then(|indices| {
-                            indices.iter().find(|&&idx| {
-                                let existing = &all_events[idx];
-                                (existing.timestamp - json_event.timestamp).num_seconds().abs() <= 2
-                                    && existing.metadata.is_none()
-                            }).copied()
-                        });
+                        let matched_idx = event_index
+                            .get(&key)
+                            .and_then(|list| find_in_candidates(list))
+                            .or_else(|| {
+                                sender_index
+                                    .get(&json_event.sender)
+                                    .and_then(|list| find_in_candidates(list))
+                            });
 
                         if let Some(idx) = matched_idx {
                             all_events[idx].metadata = json_event.metadata.clone();
+                            if all_events[idx].content.is_none() && json_event.content.is_some() {
+                                all_events[idx].content = json_event.content.clone();
+                            }
                             merged_ids += 1;
                         } else {
                             if !convo_set.contains(&convo_key) && !new_convo_ids.contains(&convo_key) {
@@ -422,6 +461,7 @@ async fn reconstruct_from_path(
     }
 
     // --- Phase: Media Linking ---
+    let total_events = all_events.len();
     app_handle
         .emit(
             "ingestion-progress",
@@ -429,7 +469,7 @@ async fn reconstruct_from_path(
                 export_id: export_id.clone(),
                 current_step: "Linking Media".to_string(),
                 progress: 0.50,
-                message: "Resolving media file references...".to_string(),
+                message: format!("Scanning media directories for {} events...", total_events),
             },
         )
         .ok();
@@ -443,7 +483,18 @@ async fn reconstruct_from_path(
     }
 
     all_events.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-    linker.link_media(&mut all_events);
+    linker.link_media_with_progress(&mut all_events, |processed, total| {
+        let pct = 0.50 + (processed as f32 / total.max(1) as f32) * 0.15;
+        let _ = app_handle.emit(
+            "ingestion-progress",
+            IngestionProgress {
+                export_id: export_id.clone(),
+                current_step: "Linking Media".to_string(),
+                progress: pct,
+                message: format!("Linking media: {} / {} messages checked...", processed, total),
+            },
+        );
+    });
 
     // Build per-conversation stats in O(N) using a HashMap
     let mut conv_stats: HashMap<String, (usize, Option<chrono::DateTime<chrono::Utc>>)> = HashMap::new();
@@ -487,7 +538,17 @@ async fn reconstruct_from_path(
         match MemoryParser::parse_memories_json(&memories_json, &export_id) {
             Ok(memories) => {
                 log::info!("Parsed {} memories", memories.len());
+                let mem_count = memories.len();
                 all_memories = memories;
+                let _ = app_handle.emit(
+                    "ingestion-progress",
+                    IngestionProgress {
+                        export_id: export_id.clone(),
+                        current_step: "Processing Memories".to_string(),
+                        progress: 0.70,
+                        message: format!("Parsed {} memories from archive", mem_count),
+                    },
+                );
             }
             Err(e) => {
                 log::error!("Failed to parse memories_history.json: {}", e);
@@ -505,22 +566,48 @@ async fn reconstruct_from_path(
             IngestionProgress {
                 export_id: export_id.clone(),
                 current_step: "Saving to Database".to_string(),
-                progress: 0.75,
+                progress: 0.71,
                 message: format!(
-                    "Indexing {} conversations, {} messages, {} memories...",
-                    all_conversations.len(),
-                    all_events.len(),
-                    all_memories.len()
+                    "Saving {} conversations...",
+                    all_conversations.len()
                 ),
             },
         )
         .ok();
 
     database.batch_insert_conversations(&all_conversations)?;
-    database.batch_insert_events(&all_events, &export_id)?;
+
+    database.batch_insert_events_with_progress(&all_events, &export_id, |inserted, total| {
+        let pct = 0.72 + (inserted as f32 / total.max(1) as f32) * 0.23;
+        let _ = app_handle.emit(
+            "ingestion-progress",
+            IngestionProgress {
+                export_id: export_id.clone(),
+                current_step: "Saving to Database".to_string(),
+                progress: pct,
+                message: format!(
+                    "Saving messages: {} / {} ({}%)...",
+                    inserted,
+                    total,
+                    ((inserted as f32 / total.max(1) as f32) * 100.0) as i32
+                ),
+            },
+        );
+    })?;
 
     if !all_memories.is_empty() {
-        database.batch_insert_memories(&all_memories)?;
+        database.batch_insert_memories_with_progress(&all_memories, |inserted, total| {
+            let pct = 0.95 + (inserted as f32 / total.max(1) as f32) * 0.04;
+            let _ = app_handle.emit(
+                "ingestion-progress",
+                IngestionProgress {
+                    export_id: export_id.clone(),
+                    current_step: "Saving Memories to Database".to_string(),
+                    progress: pct,
+                    message: format!("Saving memories: {} / {}...", inserted, total),
+                },
+            );
+        })?;
     }
 
     log::info!(
@@ -940,26 +1027,27 @@ async fn download_memory(memory: Memory, state: State<'_, DbState>, app_handle: 
 
 #[tauri::command]
 async fn show_in_folder(path: String) -> AppResult<()> {
+    let clean = crate::ingestion::media_linker::clean_path(std::path::Path::new(&path));
+    let clean_str = clean.to_string_lossy().to_string();
+
     #[cfg(target_os = "macos")]
     {
         std::process::Command::new("open")
             .arg("-R")
-            .arg(path)
+            .arg(&clean_str)
             .spawn()
             .map_err(|e| AppError::Generic(e.to_string()))?;
     }
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer")
-            .arg("/select,")
-            .arg(path)
+            .arg(format!("/select,{}", clean_str))
             .spawn()
             .map_err(|e| AppError::Generic(e.to_string()))?;
     }
     #[cfg(target_os = "linux")]
     {
-        let path_buf = std::path::PathBuf::from(path);
-        if let Some(parent) = path_buf.parent() {
+        if let Some(parent) = clean.parent() {
             std::process::Command::new("xdg-open")
                 .arg(parent)
                 .spawn()

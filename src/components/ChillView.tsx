@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "framer-motion";
 import { Memory } from "../types";
 import { Play, Pause, SkipForward, SkipBack, Shuffle } from "lucide-react";
+import { safeConvertFileSrc } from "../lib/utils";
 
 // --- Types ---
 type ViewState = "loading" | "playing" | "paused" | "empty";
@@ -95,7 +96,7 @@ export function ChillView({ onExit }: ChillViewProps) {
     const currentMemory = memories[currentIndex];
     // Prefer local path, fallback to remote
     const mediaSrc = currentMemory.media_path
-        ? convertFileSrc(currentMemory.media_path)
+        ? safeConvertFileSrc(currentMemory.media_path)
         : currentMemory.download_url ?? undefined;
 
     return (

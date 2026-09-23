@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ExportSet, ExportStats, IngestionProgress, ValidationReport } from "../types";
 import { Card, Badge, Button } from "./ui";
 import { cn } from "../lib/utils";
+import { useAppVersion } from "../lib/version";
 import { ViewMode } from "./ui/ModeToggle";
 import { DashboardSkeleton } from "./ui/Skeleton";
 import {
@@ -317,6 +318,8 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
 // --- Supporting Components ---
 
 function AIAttribution() {
+  const appVersion = useAppVersion();
+
   return (
     <div className="mt-16 pt-8 border-t border-surface-200 dark:border-surface-800 text-center opacity-40 hover:opacity-100 transition-opacity pb-8">
       <p className="text-[10px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-[0.2em] mb-3">
@@ -327,7 +330,7 @@ function AIAttribution() {
           PROTOTYPED BY AI
         </div>
         <div className="px-3 py-1 bg-brand-500/10 dark:bg-brand-500/5 rounded-full border border-brand-500/20 text-[9px] font-black text-brand-500">
-          V1.0.0 RELEASE
+          V{appVersion} RELEASE
         </div>
       </div>
     </div>

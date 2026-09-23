@@ -13,20 +13,16 @@ fi
 
 NEW_VERSION=$1
 
-# Update package.json
-# Using sed for simplicity, but ideally use jq if available. Assuming standard formatting.
-sed -i '' "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" package.json
+# Update package.json and package-lock.json
+npm version "$NEW_VERSION" --no-git-tag-version
 
-# Update src-tauri/tauri.conf.json
-sed -i '' "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" src-tauri/tauri.conf.json
+# Update src-tauri/Cargo.toml, src-tauri/tauri.conf.json, and src-tauri/Cargo.lock
+bash scripts/update-versions.sh "$NEW_VERSION"
 
-# Update src-tauri/Cargo.toml
-sed -i '' "s/^version = \".*\"/version = \"$NEW_VERSION\"/" src-tauri/Cargo.toml
-
-echo "Updated version to $NEW_VERSION in package.json, src-tauri/tauri.conf.json, and src-tauri/Cargo.toml"
+echo "Updated version to $NEW_VERSION across package.json, package-lock.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml, and src-tauri/Cargo.lock"
 
 # Git operations
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
 git commit -m "chore(release): v$NEW_VERSION"
 git tag "v$NEW_VERSION"
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useAppVersion } from "../lib/version";
 import { ExportSet } from "../types";
 import { cn } from "../lib/utils";
 import { ModeToggle, ViewMode } from "./ui/ModeToggle";
@@ -84,6 +85,7 @@ export function Sidebar({
   const [exports, setExports] = useState<ExportSet[]>([]);
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmReimport, setConfirmReimport] = useState(false);
+  const appVersion = useAppVersion();
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reimportTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -281,7 +283,7 @@ export function Sidebar({
 
       {/* Footer / Version */}
       <div className="px-5 py-3 flex items-center justify-between opacity-30 hover:opacity-100 transition-opacity">
-        <span className="text-[9px] font-black uppercase tracking-[0.2em]">v1.0.0</span>
+        <span className="text-[9px] font-black uppercase tracking-[0.2em]">v{appVersion}</span>
         <span className="text-[9px] font-bold uppercase tracking-wider">Stable</span>
       </div>
     </div>

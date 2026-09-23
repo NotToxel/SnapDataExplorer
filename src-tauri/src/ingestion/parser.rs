@@ -323,23 +323,38 @@ impl ChatJsonParser {
                         let content_val = msg.get("Content").and_then(|v| v.as_str()).unwrap_or("");
                         let conversation_title = msg.get("Conversation Title").and_then(|v| v.as_str());
                         let is_sender = msg.get("IsSender").and_then(|v| v.as_bool()).unwrap_or(false);
-                        let media_ids_raw = msg.get("Media IDs").and_then(|v| v.as_str()).unwrap_or("");
 
                         let timestamp = match ChatParser::try_parse_timestamp(created) {
                             Some(ts) => ts,
                             None => continue,
                         };
 
-                        // Parse pipe-separated Media IDs
-                        let media_ids: Vec<String> = if media_ids_raw.is_empty() {
-                            Vec::new()
-                        } else {
-                            media_ids_raw
-                                .split(" | ")
-                                .map(|s| s.trim().to_string())
-                                .filter(|s| !s.is_empty())
-                                .collect()
-                        };
+                        // Parse Media IDs (supporting singular, plural, array, or pipe/comma separated strings)
+                        let mut media_ids: Vec<String> = Vec::new();
+                        for key in ["Media IDs", "Media ID", "MediaId", "media_id", "media_ids"] {
+                            if let Some(val) = msg.get(key) {
+                                if let Some(arr) = val.as_array() {
+                                    for item in arr {
+                                        if let Some(s) = item.as_str() {
+                                            let trimmed = s.trim().to_string();
+                                            if !trimmed.is_empty() {
+                                                media_ids.push(trimmed);
+                                            }
+                                        }
+                                    }
+                                } else if let Some(s) = val.as_str() {
+                                    for part in s.split(|c| c == '|' || c == ',' || c == ';') {
+                                        let trimmed = part.trim().to_string();
+                                        if !trimmed.is_empty() {
+                                            media_ids.push(trimmed);
+                                        }
+                                    }
+                                }
+                                if !media_ids.is_empty() {
+                                    break;
+                                }
+                            }
+                        }
 
                         if !media_ids.is_empty() {
                             media_id_count += media_ids.len();
@@ -447,7 +462,39 @@ impl SnapHistoryParser {
                             Some(format!("Received a {} snap", media_type.to_lowercase()))
                         };
 
+                        let mut media_ids: Vec<String> = Vec::new();
+                        for key in ["Media IDs", "Media ID", "MediaId", "media_id", "media_ids"] {
+                            if let Some(val) = snap.get(key) {
+                                if let Some(arr) = val.as_array() {
+                                    for item in arr {
+                                        if let Some(s) = item.as_str() {
+                                            let trimmed = s.trim().to_string();
+                                            if !trimmed.is_empty() {
+                                                media_ids.push(trimmed);
+                                            }
+                                        }
+                                    }
+                                } else if let Some(s) = val.as_str() {
+                                    for part in s.split(|c| c == '|' || c == ',' || c == ';') {
+                                        let trimmed = part.trim().to_string();
+                                        if !trimmed.is_empty() {
+                                            media_ids.push(trimmed);
+                                        }
+                                    }
+                                }
+                                if !media_ids.is_empty() {
+                                    break;
+                                }
+                            }
+                        }
+
                         let mut metadata = serde_json::Map::new();
+                        if !media_ids.is_empty() {
+                            metadata.insert(
+                                "media_ids".to_string(),
+                                Value::Array(media_ids.iter().map(|id| Value::String(id.clone())).collect()),
+                            );
+                        }
                         if let Some(title) = conversation_title {
                             metadata.insert("conversation_title".to_string(), Value::String(title.to_string()));
                         }

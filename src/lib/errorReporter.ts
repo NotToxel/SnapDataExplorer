@@ -1,4 +1,4 @@
-import { getVersion } from "@tauri-apps/api/app";
+import { getAppVersion } from "./version";
 import { type, arch } from "@tauri-apps/plugin-os";
 
 export interface CrashReport {
@@ -13,7 +13,7 @@ export interface CrashReport {
 }
 
 export async function generateCrashReport(error: Error, componentStack?: string): Promise<string> {
-  const version = await getVersion();
+  const version = await getAppVersion();
   const osType = type();
   const osArch = arch();
   
