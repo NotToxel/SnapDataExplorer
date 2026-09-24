@@ -482,6 +482,24 @@ async fn reconstruct_from_path(
         linker.add_media_directory(&media_dir);
     }
 
+    // Load timestamps from manifest (created during extraction) or directly from original zips
+    let manifest_path = source_path.join("media_timestamps.json");
+    if manifest_path.exists() {
+        linker.load_timestamps_from_manifest(&manifest_path);
+    } else {
+        // Fallback: check original source zips if available
+        let zip_sources: Vec<_> = original_export
+            .source_paths
+            .iter()
+            .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("zip")))
+            .cloned()
+            .collect();
+        if !zip_sources.is_empty() {
+            linker.load_timestamps_from_zips(&zip_sources);
+        }
+    }
+    linker.build_timestamp_index();
+
     all_events.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
     linker.link_media_with_progress(&mut all_events, |processed, total| {
         let pct = 0.50 + (processed as f32 / total.max(1) as f32) * 0.15;
@@ -618,6 +636,13 @@ async fn reconstruct_from_path(
         warnings.len(),
         errors.len()
     );
+
+    // Update export status to Valid now that ingestion has successfully finished
+    let mut completed_export = original_export.clone();
+    completed_export.validation_status = crate::models::ValidationStatus::Valid;
+    if let Err(e) = database.insert_export(&completed_export) {
+        log::warn!("Failed to update export status to Valid: {}", e);
+    }
 
     // Emit the detailed result
     let result = IngestionResult {

@@ -146,13 +146,13 @@ impl ExportDetector {
         let file = fs::File::open(path).ok()?;
         let mut archive = zip::ZipArchive::new(file).ok()?;
         
-        let has_index = archive.by_name("index.html").is_ok();
-        let has_chat = archive.file_names().any(|n| n.contains("html/chat_history"));
+        let has_index = archive.by_name("index.html").is_ok() || archive.file_names().any(|n| n.starts_with("json/"));
+        let has_chat = archive.file_names().any(|n| n.contains("html/chat_history") || n.contains("json/chat_history") || n.contains("json/snap_history"));
         let has_media = archive.file_names().any(|n| n.contains("chat_media/") || n.contains("media/"));
 
         if has_index && has_chat && has_media {
             Some(ValidationStatus::Valid)
-        } else if has_index {
+        } else if has_index || has_chat {
             Some(ValidationStatus::Incomplete)
         } else {
             None
@@ -167,8 +167,8 @@ impl ExportDetector {
         for path in paths {
             if let Ok(file) = fs::File::open(path) {
                 if let Ok(mut archive) = zip::ZipArchive::new(file) {
-                    if !has_index && archive.by_name("index.html").is_ok() { has_index = true; }
-                    if !has_chat && archive.file_names().any(|n| n.contains("html/chat_history")) { has_chat = true; }
+                    if !has_index && (archive.by_name("index.html").is_ok() || archive.file_names().any(|n| n.starts_with("json/"))) { has_index = true; }
+                    if !has_chat && archive.file_names().any(|n| n.contains("html/chat_history") || n.contains("json/chat_history") || n.contains("json/snap_history")) { has_chat = true; }
                     if !has_media && archive.file_names().any(|n| n.contains("chat_media/") || n.contains("media/")) { has_media = true; }
                 }
             }
@@ -176,7 +176,7 @@ impl ExportDetector {
 
         if has_index && has_chat && has_media {
             ValidationStatus::Valid
-        } else if has_index || !paths.is_empty() {
+        } else if has_index || has_chat || !paths.is_empty() {
             ValidationStatus::Incomplete
         } else {
             ValidationStatus::Unknown
@@ -185,10 +185,11 @@ impl ExportDetector {
 
     fn validate_folder(path: &Path) -> Option<ExportSet> {
         let index_html = path.join("index.html");
-        let has_chat = path.join("html/chat_history").is_dir();
+        let has_json = path.join("json").is_dir();
+        let has_chat = path.join("html/chat_history").is_dir() || path.join("json/chat_history.json").exists() || path.join("json/snap_history.json").exists();
         let has_media = path.join("chat_media").is_dir() || path.join("media").is_dir();
 
-        if index_html.exists() {
+        if index_html.exists() || has_json {
             let status = if has_chat && has_media {
                 ValidationStatus::Valid
             } else {
@@ -213,21 +214,21 @@ impl ExportDetector {
         let mut has_media = false;
 
         for path in paths {
-            if path.join("index.html").exists() { has_index = true; }
-            if path.join("html/chat_history").is_dir() { has_chat = true; }
+            if path.join("index.html").exists() || path.join("json").is_dir() { has_index = true; }
+            if path.join("html/chat_history").is_dir() || path.join("json/chat_history.json").exists() || path.join("json/snap_history.json").exists() { has_chat = true; }
             if path.join("chat_media").is_dir() || path.join("media").is_dir() { has_media = true; }
             
-            // Siblings check: if this path is 'chat_media', look for its 'html' sibling
+            // Siblings check: if this path is 'chat_media', look for its 'html' or 'json' sibling
             if !has_index {
                 if let Some(parent) = path.parent() {
-                    if parent.join("index.html").exists() { has_index = true; }
+                    if parent.join("index.html").exists() || parent.join("json").is_dir() { has_index = true; }
                 }
             }
         }
 
         if has_index && has_chat && has_media {
             ValidationStatus::Valid
-        } else if has_index || !paths.is_empty() {
+        } else if has_index || has_chat || !paths.is_empty() {
             ValidationStatus::Incomplete
         } else {
             ValidationStatus::Unknown

@@ -14,18 +14,111 @@ pub fn clean_path(path: &Path) -> PathBuf {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct MediaTimestampEntry {
+    pub timestamp: i64,
+    pub is_video: bool,
+    pub priority: u8,
+    pub file_path: PathBuf,
+}
+
 pub struct MediaLinker {
     /// Maps media ID (or filename / stem) -> clean absolute file path
     id_map: HashMap<String, PathBuf>,
+    /// Maps filename -> unix timestamp in seconds
+    timestamp_map: HashMap<String, i64>,
+    /// Sorted index for binary search timestamp matching
+    timestamp_index: Vec<MediaTimestampEntry>,
 }
 
 impl MediaLinker {
     pub fn new(media_dir: &Path) -> Self {
         let mut linker = Self {
             id_map: HashMap::new(),
+            timestamp_map: HashMap::new(),
+            timestamp_index: Vec::new(),
         };
         linker.add_media_directory(media_dir);
         linker
+    }
+
+    pub fn load_timestamps_from_manifest(&mut self, manifest_path: &Path) {
+        if let Ok(file) = fs::File::open(manifest_path) {
+            if let Ok(map) = serde_json::from_reader::<_, HashMap<String, i64>>(file) {
+                log::info!("MediaLinker: loaded {} timestamps from manifest {:?}", map.len(), manifest_path.file_name());
+                self.timestamp_map.extend(map);
+            }
+        }
+    }
+
+    pub fn load_timestamps_from_zips(&mut self, zip_paths: &[PathBuf]) {
+        for zip_path in zip_paths {
+            if !zip_path.exists() { continue; }
+            if let Ok(file) = fs::File::open(zip_path) {
+                if let Ok(mut archive) = zip::ZipArchive::new(file) {
+                    let mut loaded = 0;
+                    for i in 0..archive.len() {
+                        if let Ok(file) = archive.by_index(i) {
+                            let name = file.name();
+                            if (name.contains("chat_media/") || name.contains("media/")) && !name.ends_with('/') {
+                                if let Some(file_name) = Path::new(name).file_name().and_then(|n| n.to_str()) {
+                                    if let Some(unix) = crate::ingestion::extractor::zip_datetime_to_unix(file.last_modified()) {
+                                        self.timestamp_map.insert(file_name.to_string(), unix);
+                                        loaded += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    log::info!("MediaLinker: loaded {} timestamps from zip {:?}", loaded, zip_path.file_name());
+                }
+            }
+        }
+    }
+
+    pub fn build_timestamp_index(&mut self) {
+        let mut index = Vec::new();
+        for (filename, path) in &self.id_map {
+            // Only include filenames with extensions
+            let ext = match path.extension().and_then(|e| e.to_str()) {
+                Some(e) => e.to_lowercase(),
+                None => continue,
+            };
+
+            // Skip unknown / non-media files (e.g. metadata.unknown)
+            if ext == "unknown" || ext == "json" || ext == "nomedia" {
+                continue;
+            }
+
+            let ts = self.timestamp_map.get(filename).copied().or_else(|| {
+                fs::metadata(path).ok().and_then(|m| m.modified().ok()).map(|sys_time| {
+                    chrono::DateTime::<chrono::Utc>::from(sys_time).timestamp()
+                })
+            });
+
+            if let Some(timestamp) = ts {
+                let is_video = ext == "mp4" || ext == "mov" || ext == "webm";
+                let priority = if filename.contains("_b~") || filename.contains("_media~") || filename.starts_with("b~") || filename.starts_with("media~") {
+                    0 // Primary media content
+                } else if filename.contains("_thumbnail~") || filename.starts_with("thumbnail~") {
+                    1 // Preview thumbnail
+                } else if filename.contains("_overlay~") || filename.starts_with("overlay~") {
+                    2 // Overlay graphic / stickers
+                } else {
+                    3
+                };
+
+                index.push(MediaTimestampEntry {
+                    timestamp,
+                    is_video,
+                    priority,
+                    file_path: path.clone(),
+                });
+            }
+        }
+        index.sort_unstable_by_key(|e| e.timestamp);
+        log::info!("MediaLinker: built timestamp index with {} media entries", index.len());
+        self.timestamp_index = index;
     }
 
     pub fn add_media_directory(&mut self, media_dir: &Path) {
@@ -129,6 +222,7 @@ impl MediaLinker {
         let mut no_ids = 0;
         let mut id_not_found = 0;
         let mut already_linked = 0;
+        let mut allocated_counts: HashMap<PathBuf, usize> = HashMap::new();
 
         for (idx, event) in events.iter_mut().enumerate() {
             if idx > 0 && idx % report_interval == 0 {
@@ -184,29 +278,61 @@ impl MediaLinker {
             // Only link via ID-based matching from event metadata
             let media_ids = Self::extract_media_ids(&event.metadata);
 
-            if media_ids.is_empty() {
-                no_ids += 1;
-                continue;
-            }
-
-            let mut found_any = false;
-            for mid in &media_ids {
-                if let Some(file_path) = self.id_map.get(mid) {
-                    event.media_references.push(file_path.clone());
-                    found_any = true;
+            let mut matched_by_id = false;
+            if !media_ids.is_empty() {
+                for mid in &media_ids {
+                    if let Some(file_path) = self.id_map.get(mid) {
+                        event.media_references.push(file_path.clone());
+                        matched_by_id = true;
+                    }
                 }
+
+                if matched_by_id {
+                    id_matched += 1;
+                    continue;
+                } else {
+                    id_not_found += 1;
+                }
+            } else {
+                no_ids += 1;
             }
 
-            if found_any {
-                id_matched += 1;
-            } else {
-                id_not_found += 1;
+            // Fallback: If media_references is still empty and we have a timestamp index,
+            // attempt temporal matching for SNAP, SNAP_VIDEO, or MEDIA events.
+            if event.media_references.is_empty() && !self.timestamp_index.is_empty() {
+                let event_ts = event.timestamp.timestamp();
+                let is_video = event.event_type == "SNAP_VIDEO";
+
+                let start_idx = self.timestamp_index.partition_point(|e| e.timestamp < event_ts - 2);
+                let mut best_match: Option<&PathBuf> = None;
+                let mut best_score = (usize::MAX, u8::MAX, i64::MAX);
+
+                for entry in &self.timestamp_index[start_idx..] {
+                    if entry.timestamp > event_ts + 2 {
+                        break;
+                    }
+                    if entry.is_video == is_video {
+                        let diff = (entry.timestamp - event_ts).abs();
+                        let alloc_count = allocated_counts.get(&entry.file_path).copied().unwrap_or(0);
+                        let score = (alloc_count, entry.priority, diff);
+                        if score < best_score {
+                            best_score = score;
+                            best_match = Some(&entry.file_path);
+                        }
+                    }
+                }
+
+                if let Some(path) = best_match {
+                    *allocated_counts.entry(path.clone()).or_insert(0) += 1;
+                    event.media_references.push(path.clone());
+                    id_matched += 1;
+                }
             }
         }
 
         on_progress(total, total);
 
-        log::info!("MediaLinker: ID-matched {}, no-ids-in-metadata {}, id-not-found {}, already-linked {}",
+        log::info!("MediaLinker: ID/temporal matched {}, no-ids-in-metadata {}, id-not-found {}, already-linked {}",
             id_matched, no_ids, id_not_found, already_linked);
     }
 
@@ -365,5 +491,64 @@ mod tests {
 
         linker.link_media(&mut events);
         assert!(events[0].media_references.is_empty());
+    }
+
+    #[test]
+    fn test_link_media_by_timestamp() {
+        let dir = tempfile::tempdir().unwrap();
+        let media_file = dir.path().join("2024-06-13_sample.jpg");
+        File::create(&media_file).unwrap().write_all(b"fake").unwrap();
+
+        let mut linker = MediaLinker::new(dir.path());
+        let event_time = chrono::DateTime::from_timestamp(1718283669, 0).unwrap();
+        linker.timestamp_map.insert("2024-06-13_sample.jpg".to_string(), 1718283670); // 1 sec diff
+        linker.build_timestamp_index();
+
+        let mut event = make_event("SNAP", None, vec![]);
+        event.timestamp = event_time;
+        let mut events = vec![event];
+
+        linker.link_media(&mut events);
+        assert_eq!(events[0].media_references.len(), 1);
+        assert_eq!(events[0].media_references[0], media_file);
+    }
+
+    #[test]
+    fn test_link_media_priority_and_deduplication() {
+        let dir = tempfile::tempdir().unwrap();
+        // File 1: overlay png (priority 2)
+        let overlay_file = dir.path().join("2024-06-13_overlay~xyz.png");
+        File::create(&overlay_file).unwrap().write_all(b"overlay").unwrap();
+
+        // File 2: primary image 1 (priority 0)
+        let primary_file1 = dir.path().join("2024-06-13_b~abc.jpg");
+        File::create(&primary_file1).unwrap().write_all(b"primary1").unwrap();
+
+        // File 3: primary image 2 (priority 0)
+        let primary_file2 = dir.path().join("2024-06-13_b~def.jpg");
+        File::create(&primary_file2).unwrap().write_all(b"primary2").unwrap();
+
+        let mut linker = MediaLinker::new(dir.path());
+        linker.timestamp_map.insert("2024-06-13_overlay~xyz.png".to_string(), 1718283670);
+        linker.timestamp_map.insert("2024-06-13_b~abc.jpg".to_string(), 1718283670);
+        linker.timestamp_map.insert("2024-06-13_b~def.jpg".to_string(), 1718283670);
+        linker.build_timestamp_index();
+
+        let event_time = chrono::DateTime::from_timestamp(1718283670, 0).unwrap();
+        let mut event1 = make_event("SNAP", None, vec![]);
+        event1.timestamp = event_time;
+        let mut event2 = make_event("SNAP", None, vec![]);
+        event2.timestamp = event_time;
+
+        let mut events = vec![event1, event2];
+        linker.link_media(&mut events);
+
+        // Both events should have matched a primary image, neither should have matched the overlay
+        assert_eq!(events[0].media_references.len(), 1);
+        assert_eq!(events[1].media_references.len(), 1);
+        assert_ne!(events[0].media_references[0], overlay_file);
+        assert_ne!(events[1].media_references[0], overlay_file);
+        // And each should get a unique primary file (deduplicated allocation)
+        assert_ne!(events[0].media_references[0], events[1].media_references[0]);
     }
 }

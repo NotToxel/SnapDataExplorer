@@ -1,3 +1,17 @@
+## [1.1.0](https://github.com/KodyDennon/SnapDataExplorer/compare/v1.0.2...v1.1.0) (2026-09-25)
+
+### Features
+
+* **media:** Temporal media linking using archive MS-DOS metadata for Snapchat exports lacking explicit Media IDs in `snap_history.json`, achieving 98.9% media match rate.
+* **ingestion:** Direct extraction timestamp manifest generation (`media_timestamps.json`) preserving exact sub-day creation timestamps across extractions.
+* **validation:** Added native support for modern JSON-first Snapchat data exports without requiring legacy HTML/index.html files.
+
+### Improvements & Bug Fixes
+
+* **linking:** Enhanced media candidate scoring prioritizing primary media files over transparent overlays and low-resolution thumbnails.
+* **deduplication:** Implemented allocated candidate tracking for multi-recipient and concurrent snaps, ensuring unique media assignment across recipients.
+* **ingestion:** Ensured export validation status is automatically updated to `Valid` upon successful reconstruction completion.
+
 ## [1.0.2](https://github.com/KodyDennon/SnapDataExplorer/compare/v1.0.1...v1.0.2) (2026-09-23)
 
 ### Features
