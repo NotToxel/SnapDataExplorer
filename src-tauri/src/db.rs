@@ -1,6 +1,6 @@
 use crate::error::AppResult;
 use crate::models::{
-    Conversation, Event, ExportSet, ExportSourceType, ExportStats, MediaStreamEntry, Memory, MessagePage,
+    ContentBreakdown, Conversation, DateActivity, Event, ExportSet, ExportSourceType, ExportStats, MediaStreamEntry, Memory, MessagePage,
     PaginatedMedia, Person, SearchResult, ValidationReport, ValidationStatus,
 };
 use chrono::{DateTime, Utc};
@@ -498,6 +498,99 @@ impl DatabaseManager {
         let end_date =
             end_date_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc)));
 
+        let mut text_messages = 0;
+        let mut photo_snaps = 0;
+        let mut video_snaps = 0;
+        let mut audio_notes = 0;
+        let mut stickers = 0;
+        let mut event_saved_videos = 0;
+        let mut event_saved_photos = 0;
+
+        let mut event_type_stmt = conn.prepare(
+            "SELECT event_type, COUNT(*),
+             SUM(CASE WHEN media_references != '[]' AND media_references IS NOT NULL THEN 1 ELSE 0 END)
+             FROM events GROUP BY event_type",
+        )?;
+        let event_type_rows = event_type_stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i32>(1)?,
+                row.get::<_, Option<i32>>(2)?.unwrap_or(0),
+            ))
+        })?;
+
+        for row in event_type_rows.flatten() {
+            let count = row.1;
+            let saved = row.2;
+            match row.0.as_str() {
+                "TEXT" => text_messages += count,
+                "SNAP" | "MEDIA" => {
+                    photo_snaps += count;
+                    event_saved_photos += saved;
+                }
+                "SNAP_VIDEO" => {
+                    video_snaps += count;
+                    event_saved_videos += saved;
+                }
+                "NOTE" => {
+                    audio_notes += count;
+                }
+                "STICKER" => stickers += count,
+                _ => {}
+            }
+        }
+
+        let mut memory_photos = 0;
+        let mut memory_videos = 0;
+        let mut saved_memories = 0;
+        let mut memory_saved_videos = 0;
+        let mut memory_saved_photos = 0;
+
+        let mut mem_stmt = conn.prepare(
+            "SELECT UPPER(media_type), COUNT(*),
+             SUM(CASE WHEN media_path IS NOT NULL AND media_path != '' THEN 1 ELSE 0 END)
+             FROM memories GROUP BY UPPER(media_type)",
+        )?;
+        let mem_rows = mem_stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i32>(1)?,
+                row.get::<_, Option<i32>>(2)?.unwrap_or(0),
+            ))
+        })?;
+
+        for row in mem_rows.flatten() {
+            let count = row.1;
+            let saved = row.2;
+            if row.0 == "VIDEO" {
+                memory_videos += count;
+                memory_saved_videos += saved;
+            } else {
+                memory_photos += count;
+                memory_saved_photos += saved;
+            }
+            saved_memories += saved;
+        }
+
+        let total_saved_media = total_media_files + saved_memories;
+        let total_saved_videos = event_saved_videos + memory_saved_videos;
+        let total_saved_photos = event_saved_photos + memory_saved_photos;
+
+        let breakdown = ContentBreakdown {
+            text_messages,
+            photo_snaps,
+            video_snaps,
+            audio_notes,
+            stickers,
+            saved_media_files: total_media_files,
+            saved_memories,
+            memory_photos,
+            memory_videos,
+            total_saved_media,
+            total_saved_videos,
+            total_saved_photos,
+        };
+
         Ok(ExportStats {
             total_messages,
             total_conversations,
@@ -507,6 +600,7 @@ impl DatabaseManager {
             top_contacts,
             start_date,
             end_date,
+            breakdown: Some(breakdown),
         })
     }
 
@@ -700,6 +794,50 @@ impl DatabaseManager {
             total_count,
             has_more,
         })
+    }
+
+    pub fn get_conversation_media(&self, conversation_id: &str) -> AppResult<Vec<Event>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT e.id, e.timestamp, e.sender, e.conversation_id, e.content, e.event_type, e.media_references, e.metadata, p.display_name
+             FROM events e
+             LEFT JOIN people p ON e.sender = p.username
+             WHERE e.conversation_id = ?1
+               AND e.media_references IS NOT NULL
+               AND e.media_references != '[]'
+             ORDER BY e.timestamp DESC"
+        )?;
+
+        let event_iter = stmt.query_map([conversation_id], |row| {
+            let timestamp_str: String = row.get(1)?;
+            let timestamp = chrono::DateTime::parse_from_rfc3339(&timestamp_str)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|e| {
+                    log::warn!("Bad timestamp in DB: '{}': {}", timestamp_str, e);
+                    chrono::DateTime::<chrono::Utc>::MIN_UTC
+                });
+
+            let media_refs_json: String = row.get(6)?;
+            let media_references: Vec<std::path::PathBuf> = serde_json::from_str(&media_refs_json).unwrap_or_default();
+
+            Ok(Event {
+                id: row.get(0)?,
+                timestamp,
+                sender: row.get(2)?,
+                sender_name: row.get(8).ok(),
+                conversation_id: row.get(3)?,
+                content: row.get(4)?,
+                event_type: row.get(5)?,
+                media_references,
+                metadata: row.get(7)?,
+            })
+        })?;
+
+        let mut events = Vec::new();
+        for event in event_iter {
+            events.push(event?);
+        }
+        Ok(events)
     }
 
     /// Sanitize a user query for FTS5 MATCH. Wraps each word in double quotes
@@ -921,6 +1059,40 @@ impl DatabaseManager {
             .query_map([conversation_id], |row| row.get(0))?
             .collect::<std::result::Result<Vec<String>, _>>()?;
         Ok(dates)
+    }
+
+    pub fn get_date_activity(&self, conversation_id: &str) -> AppResult<Vec<DateActivity>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(
+            r#"SELECT 
+                substr(timestamp, 1, 10) as dt,
+                COUNT(*) as total,
+                SUM(CASE WHEN event_type = 'TEXT' THEN 1 ELSE 0 END) as text_count,
+                SUM(CASE WHEN event_type IN ('SNAP', 'SNAP_VIDEO') THEN 1 ELSE 0 END) as snap_count,
+                SUM(CASE WHEN event_type = 'MEDIA' THEN 1 ELSE 0 END) as media_count,
+                SUM(CASE WHEN event_type = 'NOTE' THEN 1 ELSE 0 END) as audio_count,
+                SUM(CASE WHEN event_type NOT IN ('TEXT', 'SNAP', 'SNAP_VIDEO', 'MEDIA', 'NOTE') THEN 1 ELSE 0 END) as other_count
+             FROM events
+             WHERE conversation_id = ?1
+             GROUP BY dt
+             ORDER BY dt ASC"#,
+        )?;
+        let rows = stmt.query_map([conversation_id], |row| {
+            Ok(DateActivity {
+                date: row.get(0)?,
+                total_messages: row.get(1)?,
+                text_count: row.get(2)?,
+                snap_count: row.get(3)?,
+                media_count: row.get(4)?,
+                audio_count: row.get(5)?,
+                other_count: row.get(6)?,
+            })
+        })?;
+        let mut results = Vec::new();
+        for r in rows {
+            results.push(r?);
+        }
+        Ok(results)
     }
 
     /// Generate a data integrity report for the dashboard.

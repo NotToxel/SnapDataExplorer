@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
-import { Event as Message, MessagePage, MediaViewerItem } from "../types";
+import { Event as Message, MessagePage, MediaViewerItem, DateActivity } from "../types";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Toast } from "../hooks/useToast";
 import { MediaViewer } from "./ui/MediaViewer";
+import { DatePickerModal } from "./ui/DatePickerModal";
+import { ConversationMediaGallery } from "./ConversationMediaGallery";
 import { 
   Image as ImageIcon, 
   Play, 
@@ -297,11 +299,13 @@ export function ChatView({ conversationId, addToast }: ChatViewProps) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [jumpDate, setJumpDate] = useState("");
   const [exporting, setExporting] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState(-1);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [viewTab, setViewTab] = useState<"chat" | "media">("chat");
+  const [activeDates, setActiveDates] = useState<string[]>([]);
+  const [activityData, setActivityData] = useState<DateActivity[]>([]);
 
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const offsetRef = useRef(0);
@@ -361,9 +365,36 @@ export function ChatView({ conversationId, addToast }: ChatViewProps) {
 
   useEffect(() => {
     setDisplayName(null);
+    setViewTab("chat");
     invoke<string | null>("get_conversation_name", { conversationId })
       .then((name) => { if (name) setDisplayName(name); })
       .catch(() => { });
+
+    invoke<DateActivity[]>("get_date_activity", { conversationId })
+      .then((data) => {
+        setActivityData(data);
+        setActiveDates(data.map((d) => d.date));
+      })
+      .catch((err) => {
+        console.error("Failed to load date activity:", err);
+        invoke<string[]>("get_activity_dates", { conversationId })
+          .then((dates) => {
+            setActiveDates(dates);
+            setActivityData(dates.map((d) => ({
+              date: d,
+              total_messages: 0,
+              text_count: 0,
+              snap_count: 0,
+              media_count: 0,
+              audio_count: 0,
+              other_count: 0
+            })));
+          })
+          .catch(() => {
+            setActiveDates([]);
+            setActivityData([]);
+          });
+      });
   }, [conversationId]);
 
   useEffect(() => {
@@ -383,23 +414,48 @@ export function ChatView({ conversationId, addToast }: ChatViewProps) {
     }
   }, [initialLoad, messages.length]);
 
-  async function handleJumpToDate() {
-    if (!jumpDate) return;
+  async function handleJumpToDate(targetDate?: string) {
+    if (!targetDate) return;
     try {
       const index = await invoke<number>("get_message_index_at_date", {
         conversationId,
-        date: jumpDate,
+        date: targetDate,
       });
+      setViewTab("chat");
+      setShowDatePicker(false);
       virtuosoRef.current?.scrollToIndex({
         index: Math.min(index, messages.length - 1),
         behavior: "smooth",
         align: "start",
       });
-      setShowDatePicker(false);
     } catch (e) {
       addToast("error", "Could not jump to that date.");
     }
   }
+
+  const handleJumpToMessage = useCallback(async (msgId: string) => {
+    setViewTab("chat");
+    const idx = messages.findIndex((m) => m.id === msgId);
+    if (idx >= 0) {
+      setTimeout(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: idx,
+          behavior: "smooth",
+          align: "center",
+        });
+      }, 60);
+    } else {
+      try {
+        const mediaList = await invoke<Message[]>("get_conversation_media", { conversationId });
+        const target = mediaList.find((m) => m.id === msgId);
+        if (target?.timestamp) {
+          handleJumpToDate(target.timestamp.substring(0, 10));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [messages, conversationId]);
 
   async function handleExport(format: "text" | "json") {
     setExporting(true);
@@ -464,54 +520,48 @@ export function ChatView({ conversationId, addToast }: ChatViewProps) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className={cn(
-                "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2",
-                showDatePicker ? "bg-slate-900 text-white" : "text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800"
-              )}
-            >
-              <Hash className="w-4 h-4" /> Jump
-            </button>
-            <AnimatePresence>
-              {showDatePicker && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 top-full mt-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-2xl p-5 z-20 w-72"
-                >
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-widest">Jump to History</p>
-                  <input
-                    type="date"
-                    value={jumpDate}
-                    onChange={(e) => setJumpDate(e.target.value)}
-                    className="w-full border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm mb-4 focus:ring-2 focus:ring-purple-500/50 outline-hidden dark:bg-slate-900 dark:text-slate-200 transition-all"
-                  />
-                  <button
-                    onClick={handleJumpToDate}
-                    disabled={!jumpDate}
-                    className="w-full bg-purple-600 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-purple-500 disabled:opacity-40 transition-all shadow-lg shadow-purple-500/20"
-                  >
-                    Execute Jump
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* Gallery View Tab Toggle */}
+          <button
+            onClick={() => setViewTab(prev => prev === 'chat' ? 'media' : 'chat')}
+            className={cn(
+              "px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer",
+              viewTab === 'media'
+                ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20"
+                : "text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800"
+            )}
+            title="Browse all photos, videos & snaps in this chat"
+          >
+            <ImageIcon className="w-4 h-4" />
+            <span>Media</span>
+          </button>
+
+          {/* Jump to Date Button */}
+          <button
+            onClick={() => setShowDatePicker(true)}
+            className={cn(
+              "px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer",
+              showDatePicker
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                : "text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800"
+            )}
+            title="Jump to date in conversation"
+          >
+            <Hash className="w-4 h-4" />
+            <span>Jump</span>
+          </button>
+
           <div className="relative group">
             <button
-              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all flex items-center gap-2"
+              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all flex items-center gap-2 cursor-pointer"
               disabled={exporting}
             >
               {exporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Export
             </button>
             <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-20 hidden group-hover:block w-48 animate-in fade-in slide-in-from-top-2">
-              <button onClick={() => handleExport("text")} className="block w-full text-left px-5 py-3 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200 transition-colors">
+              <button onClick={() => handleExport("text")} className="block w-full text-left px-5 py-3 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200 transition-colors cursor-pointer">
                 Archive (.txt)
               </button>
-              <button onClick={() => handleExport("json")} className="block w-full text-left px-5 py-3 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200 transition-colors">
+              <button onClick={() => handleExport("json")} className="block w-full text-left px-5 py-3 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200 transition-colors cursor-pointer">
                 Database (.json)
               </button>
             </div>
@@ -519,7 +569,15 @@ export function ChatView({ conversationId, addToast }: ChatViewProps) {
         </div>
       </header>
 
-      {loading && initialLoad ? (
+      {viewTab === "media" ? (
+        <ConversationMediaGallery
+          conversationId={conversationId}
+          conversationName={headerName}
+          onClose={() => setViewTab("chat")}
+          onJumpToMessage={handleJumpToMessage}
+          addToast={addToast}
+        />
+      ) : loading && initialLoad ? (
         <div className="flex-1 flex items-center justify-center">
           <RefreshCw className="w-10 h-10 text-brand-500 animate-spin" />
         </div>
@@ -559,7 +617,7 @@ export function ChatView({ conversationId, addToast }: ChatViewProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
                 onClick={scrollToBottom}
-                className="absolute bottom-6 right-6 p-3 rounded-full bg-brand-600 text-white shadow-xl hover:bg-brand-500 transition-colors z-20 group"
+                className="absolute bottom-6 right-6 p-3 rounded-full bg-brand-600 text-white shadow-xl hover:bg-brand-500 transition-colors z-20 group cursor-pointer"
               >
                 <ChevronDown className="w-6 h-6 group-hover:translate-y-0.5 transition-transform" />
               </motion.button>
@@ -568,12 +626,21 @@ export function ChatView({ conversationId, addToast }: ChatViewProps) {
         </div>
       )}
 
+      <DatePickerModal
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        activeDates={activeDates}
+        activityData={activityData}
+        onSelectDate={(date) => handleJumpToDate(date)}
+      />
+
       <MediaViewer
         isOpen={viewerIndex >= 0}
         onClose={() => setViewerIndex(-1)}
         items={chatMediaItems}
         currentIndex={viewerIndex}
         onIndexChange={setViewerIndex}
+        addToast={addToast}
       />
     </div>
   );

@@ -25,7 +25,21 @@ export const MOCK_STATS: ExportStats = {
     ["Alex D.", 600]
   ],
   start_date: "2018-04-12T10:00:00Z",
-  end_date: new Date().toISOString()
+  end_date: new Date().toISOString(),
+  breakdown: {
+    text_messages: 9420,
+    photo_snaps: 1850,
+    video_snaps: 740,
+    audio_notes: 310,
+    stickers: 130,
+    saved_media_files: 890,
+    saved_memories: 144,
+    memory_photos: 112,
+    memory_videos: 44,
+    total_saved_media: 1034,
+    total_saved_videos: 420,
+    total_saved_photos: 614,
+  }
 };
 
 export const MOCK_CONVERSATIONS: Conversation[] = [

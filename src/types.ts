@@ -64,6 +64,21 @@ export interface DiskSpaceInfo {
 }
 
 
+export interface ContentBreakdown {
+  text_messages: number;
+  photo_snaps: number;
+  video_snaps: number;
+  audio_notes: number;
+  stickers: number;
+  saved_media_files: number;
+  saved_memories: number;
+  memory_photos: number;
+  memory_videos: number;
+  total_saved_media: number;
+  total_saved_videos: number;
+  total_saved_photos: number;
+}
+
 export interface ExportStats {
   total_messages: number;
   total_conversations: number;
@@ -73,6 +88,7 @@ export interface ExportStats {
   top_contacts: [string, number][];
   start_date: string | null;
   end_date: string | null;
+  breakdown?: ContentBreakdown | null;
 }
 
 export interface SearchResult {
@@ -151,4 +167,14 @@ export interface MediaViewerItem {
   event_type?: string;
   content?: string | null;
   metadata?: string | null;
+}
+
+export interface DateActivity {
+  date: string;
+  total_messages: number;
+  text_count: number;
+  snap_count: number;
+  media_count: number;
+  audio_count: number;
+  other_count: number;
 }

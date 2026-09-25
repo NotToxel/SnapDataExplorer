@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Image as ImageIcon, Cloud, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Play, Image as ImageIcon, Cloud, CheckCircle, Clock, AlertCircle, Volume2 } from 'lucide-react';
 import { cn, safeConvertFileSrc } from '../../lib/utils';
 import { DownloadStatus, DownloadProgress } from '../../types';
 
 interface MediaThumbnailProps {
     path?: string;
     remoteUrl?: string;
-    mediaType: string; // "Image" | "Video"
+    mediaType: string; // "Image" | "Video" | "Audio"
     status: DownloadStatus;
     progress?: DownloadProgress;
     isSelected?: boolean;
@@ -30,15 +30,24 @@ export const MediaThumbnail = React.memo(({
     timestamp
 }: MediaThumbnailProps) => {
     const [hasError, setHasError] = useState(false);
-    const isVideo = mediaType.toLowerCase() === 'video';
+
+    const cleanPath = (path || remoteUrl || '').split('?')[0].toLowerCase();
+    const isAudio = mediaType.toLowerCase() === 'audio' || cleanPath.endsWith('.m4a') || cleanPath.endsWith('.aac') || cleanPath.endsWith('.opus') || cleanPath.endsWith('.mp3');
+    const isVideo = !isAudio && (mediaType.toLowerCase() === 'video' || cleanPath.endsWith('.mp4') || cleanPath.endsWith('.mov') || cleanPath.endsWith('.webm'));
 
     // Memoize the source to prevent re-calculations
-    const src = useMemo(() => {
+    const rawSrc = useMemo(() => {
         if (path) {
             return safeConvertFileSrc(path) ?? null;
         }
         return remoteUrl ?? null;
     }, [path, remoteUrl]);
+
+    // Ensure video seeks to first frame when metadata loads
+    const videoSrc = useMemo(() => {
+        if (!rawSrc || !isVideo) return null;
+        return rawSrc.includes('#') ? rawSrc : `${rawSrc}#t=0.001`;
+    }, [rawSrc, isVideo]);
 
     const renderStatusIcon = () => {
         switch (status) {
@@ -61,55 +70,72 @@ export const MediaThumbnail = React.memo(({
             whileTap={{ scale: 0.98 }}
             layout
             className={cn(
-                "relative rounded-xl overflow-hidden aspect-square cursor-pointer group bg-black/40 border border-white/5 shadow-2xl transition-all duration-300",
-                isSelected && "ring-2 ring-purple-500 ring-offset-2 ring-offset-zinc-950",
+                "relative rounded-xl overflow-hidden aspect-square cursor-pointer group bg-surface-200/60 dark:bg-black/40 border border-surface-200 dark:border-white/5 shadow-md dark:shadow-2xl transition-all duration-300",
+                isSelected && "ring-2 ring-purple-500 ring-offset-2 ring-offset-white dark:ring-offset-zinc-950",
                 className
             )}
             onClick={onClick}
         >
             {/* Media Content */}
-            {src && !hasError ? (
-                isVideo ? (
+            {rawSrc && !hasError ? (
+                isAudio ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-linear-to-br from-surface-100 to-surface-200 dark:from-surface-800 dark:to-surface-950 p-4 text-center">
+                        <div className="w-12 h-12 rounded-full bg-brand-500/10 dark:bg-brand-500/20 border border-brand-500/30 dark:border-brand-500/40 flex items-center justify-center mb-2 shadow-md group-hover:scale-110 transition-transform">
+                            <Volume2 className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+                        </div>
+                        <span className="text-[11px] font-bold text-surface-800 dark:text-white/80 uppercase tracking-wider">Audio Note</span>
+                        <div className="flex items-center gap-1 mt-2">
+                            <span className="w-1 h-3 bg-brand-500 rounded-full animate-pulse" />
+                            <span className="w-1 h-5 bg-brand-400 rounded-full animate-pulse delay-75" />
+                            <span className="w-1 h-2 bg-brand-600 rounded-full animate-pulse delay-150" />
+                            <span className="w-1 h-4 bg-brand-500 rounded-full animate-pulse delay-100" />
+                        </div>
+                    </div>
+                ) : isVideo ? (
                     <video
-                        src={src}
+                        src={videoSrc || undefined}
                         className="w-full h-full object-cover"
-                        onMouseOver={(e) => {
-                            if (status === 'Downloaded') {
-                                e.currentTarget.preload = "auto";
-                                e.currentTarget.play().catch(() => { });
-                            }
-                        }}
-                        onMouseOut={(e) => {
-                            e.currentTarget.pause();
-                            e.currentTarget.currentTime = 0;
-                        }}
+                        preload="metadata"
                         muted
                         loop
                         playsInline
-                        preload="none"
+                        onMouseOver={(e) => {
+                            e.currentTarget.play().catch(() => { });
+                        }}
+                        onMouseOut={(e) => {
+                            e.currentTarget.pause();
+                            e.currentTarget.currentTime = 0.001;
+                        }}
                         onError={() => setHasError(true)}
                     />
                 ) : (
                     <img
-                        src={src}
+                        src={rawSrc}
+                        alt="Thumbnail"
                         className="w-full h-full object-cover"
                         loading="lazy"
                         onError={() => setHasError(true)}
                     />
                 )
             ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900/50 backdrop-blur-xs text-zinc-500 gap-2">
-                    {isVideo ? <Play className="w-8 h-8 opacity-20" /> : <ImageIcon className="w-8 h-8 opacity-20" />}
+                <div className="w-full h-full flex flex-col items-center justify-center bg-surface-100 dark:bg-zinc-900/50 backdrop-blur-xs text-surface-400 dark:text-zinc-500 gap-2">
+                    {isVideo ? (
+                        <Play className="w-8 h-8 opacity-20" />
+                    ) : isAudio ? (
+                        <Volume2 className="w-8 h-8 opacity-20" />
+                    ) : (
+                        <ImageIcon className="w-8 h-8 opacity-20" />
+                    )}
                     {status === 'Pending' && <span className="text-[10px] uppercase font-bold tracking-tighter opacity-40">Remote</span>}
                 </div>
             )}
 
             {/* Overlays */}
-            <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
             {/* Progress Bar for Downloads */}
             {status === 'Downloading' && progress && (
-                <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">
+                <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10 z-10">
                     <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${progress.progress * 100}%` }}
@@ -119,14 +145,14 @@ export const MediaThumbnail = React.memo(({
             )}
 
             {/* Top Bar: Selection & Status */}
-            <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
+            <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-10">
                 <div
                     onClick={(e) => {
                         e.stopPropagation();
                         onSelect?.(!isSelected);
                     }}
                     className={cn(
-                        "w-5 h-5 rounded-full border border-white/20 flex items-center justify-center transition-colors",
+                        "w-5 h-5 rounded-full border border-white/20 flex items-center justify-center transition-colors cursor-pointer",
                         isSelected ? "bg-purple-600 border-purple-500" : "bg-black/40 hover:bg-black/60"
                     )}
                 >
@@ -139,15 +165,20 @@ export const MediaThumbnail = React.memo(({
             </div>
 
             {/* Bottom info */}
-            <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center transform translate-y-1 group-hover:translate-y-0 transition-transform duration-300">
+            <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center transform translate-y-1 group-hover:translate-y-0 transition-transform duration-300 z-10 pointer-events-none">
                 {timestamp && (
-                    <span className="text-[10px] text-white/60 font-medium truncate max-w-[70%]">
+                    <span className="text-[10px] text-white/70 font-medium truncate max-w-[70%]">
                         {new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
                     </span>
                 )}
                 {isVideo && (
                     <div className="p-1 rounded-md bg-white/10 backdrop-blur-xs border border-white/10">
                         <Play className="w-3 h-3 text-white fill-white" />
+                    </div>
+                )}
+                {isAudio && (
+                    <div className="p-1 rounded-md bg-white/10 backdrop-blur-xs border border-white/10">
+                        <Volume2 className="w-3 h-3 text-accent-cyan" />
                     </div>
                 )}
             </div>

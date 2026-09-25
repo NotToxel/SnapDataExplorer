@@ -112,6 +112,23 @@ pub struct Memory {
     pub download_status: DownloadStatus,
 }
 
+/// Detailed content and media type breakdown.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ContentBreakdown {
+    pub text_messages: i32,
+    pub photo_snaps: i32,
+    pub video_snaps: i32,
+    pub audio_notes: i32,
+    pub stickers: i32,
+    pub saved_media_files: i32,
+    pub saved_memories: i32,
+    pub memory_photos: i32,
+    pub memory_videos: i32,
+    pub total_saved_media: i32,
+    pub total_saved_videos: i32,
+    pub total_saved_photos: i32,
+}
+
 /// Aggregate statistics for an imported export.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExportStats {
@@ -124,6 +141,8 @@ pub struct ExportStats {
     pub top_contacts: Vec<(String, i32)>,
     pub start_date: Option<DateTime<Utc>>,
     pub end_date: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub breakdown: Option<ContentBreakdown>,
 }
 
 /// Real-time progress updates emitted during ingestion.
@@ -210,4 +229,16 @@ pub struct PaginatedMedia {
     pub items: Vec<MediaStreamEntry>,
     pub total_count: i32,
     pub has_more: bool,
+}
+
+/// Activity breakdown for a single day in a conversation.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DateActivity {
+    pub date: String,
+    pub total_messages: i32,
+    pub text_count: i32,
+    pub snap_count: i32,
+    pub media_count: i32,
+    pub audio_count: i32,
+    pub other_count: i32,
 }

@@ -10,13 +10,12 @@ import {
     Wind,
     Layers,
     Calendar,
-    Eye,
+    Sparkles,
     ArrowRight
 } from "lucide-react";
 import { MediaViewer } from "./ui/MediaViewer";
 import { VirtuosoGrid } from "react-virtuoso";
 
-// --- Types ---
 interface ChillGalleryProps {
     onExit: () => void;
 }
@@ -77,7 +76,7 @@ export function ChillGallery({ onExit }: ChillGalleryProps) {
         const scroll = () => {
             if (scrollRef.current) {
                 scrollRef.current.scrollTo({
-                    top: scrollRef.current.getScrollTop() + 0.4,
+                    top: scrollRef.current.getScrollTop() + 0.45,
                     behavior: 'auto'
                 });
             }
@@ -89,78 +88,81 @@ export function ChillGallery({ onExit }: ChillGalleryProps) {
 
     if (loading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-zinc-950">
+            <div className="flex-1 flex items-center justify-center bg-surface-50 dark:bg-zinc-950 text-surface-900 dark:text-white">
                 <div className="flex flex-col items-center gap-6">
                     <div className="relative">
-                        <div className="w-16 h-16 border-4 border-white/5 border-t-brand-500 rounded-full animate-spin" />
+                        <div className="w-16 h-16 border-4 border-surface-200 dark:border-white/10 border-t-brand-500 rounded-full animate-spin" />
                         <Layers className="absolute inset-0 m-auto w-6 h-6 text-brand-500 animate-pulse" />
                     </div>
-                    <p className="text-white/40 font-mono text-[10px] uppercase tracking-[0.4em] animate-pulse">Syncing Visual Stream...</p>
+                    <p className="text-surface-500 dark:text-white/40 font-mono text-[10px] uppercase tracking-[0.4em] animate-pulse">Syncing Visual Stream...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="relative flex-1 bg-zinc-950 flex flex-col h-full overflow-hidden font-sans">
-            {/* Immersive Animated Background */}
+        <div className="relative flex-1 bg-surface-50 dark:bg-zinc-950 text-surface-900 dark:text-white flex flex-col h-full overflow-hidden font-sans">
+            {/* Immersive Dynamic Backdrop Glow */}
             <AnimatePresence mode="wait">
                 <motion.div
                     key={hoveredItem?.id || 'default'}
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.25 }}
+                    animate={{ opacity: 0.28 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 1.2, ease: "easeInOut" }}
-                    className="absolute inset-0 pointer-events-none z-0"
+                    className="absolute inset-0 pointer-events-none z-0 overflow-hidden"
                 >
                     <div
-                        className="absolute inset-0 bg-cover bg-center blur-[140px] scale-150 transition-all duration-2000"
+                        className="absolute inset-0 bg-cover bg-center blur-[120px] scale-150 transition-all duration-2000"
                         style={{ backgroundImage: hoveredItem ? `url(${safeConvertFileSrc(hoveredItem.path)})` : 'none' }}
                     />
-                    <div className="absolute inset-0 bg-linear-to-tr from-zinc-950 via-transparent to-zinc-950/50" />
+                    <div className="absolute inset-0 bg-linear-to-tr from-surface-50/80 via-transparent to-surface-50/40 dark:from-zinc-950 dark:via-transparent dark:to-zinc-950/60" />
                 </motion.div>
             </AnimatePresence>
 
             {/* Floating Header Controls */}
-            <div className="absolute inset-x-0 top-0 z-40 p-8 flex justify-between items-center bg-linear-to-b from-zinc-950/80 to-transparent backdrop-blur-[2px]">
+            <div className="absolute inset-x-0 top-0 z-40 p-6 md:p-8 flex justify-between items-center bg-linear-to-b from-surface-50/95 via-surface-50/70 to-transparent dark:from-zinc-950/90 dark:via-zinc-950/50 dark:to-transparent backdrop-blur-[2px]">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-4"
                 >
-                    <div className="w-10 h-10 rounded-2xl bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
+                    <div className="w-10 h-10 rounded-2xl bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/25">
                         <Wind className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-white text-xl font-black tracking-tighter leading-none">GALLERY</h1>
-                        <p className="text-white/30 text-[9px] uppercase tracking-[0.4em] mt-1 font-bold">Immersive View</p>
+                        <h1 className="text-surface-900 dark:text-white text-xl font-black tracking-tighter leading-none">GALLERY</h1>
+                        <p className="text-surface-500 dark:text-white/40 text-[9px] uppercase tracking-[0.4em] mt-1 font-bold">Chill Mode</p>
                     </div>
                 </motion.div>
 
                 <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="flex gap-3"
+                    className="flex items-center gap-3"
                 >
+                    {/* Zen Mode Button with dynamic pulse */}
                     <button
                         onClick={() => setIsAutoScrolling(!isAutoScrolling)}
                         className={cn(
-                            "px-5 py-2.5 rounded-2xl border text-[10px] font-black tracking-widest transition-all flex items-center gap-3",
+                            "px-5 py-2.5 rounded-2xl border text-[10px] font-black tracking-widest transition-all flex items-center gap-2.5 cursor-pointer shadow-xs",
                             isAutoScrolling
-                                ? "bg-brand-500 border-brand-400 text-white shadow-xl shadow-brand-500/40"
-                                : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10"
+                                ? "bg-brand-500 border-brand-400 text-white shadow-lg shadow-brand-500/35"
+                                : "bg-white/80 hover:bg-white dark:bg-white/5 dark:hover:bg-white/10 border-surface-200 dark:border-white/10 text-surface-700 dark:text-white/60 hover:text-surface-900 dark:hover:text-white"
                         )}
+                        title={isAutoScrolling ? "Zen Mode: Auto-scrolling is active (click to pause)" : "Zen Mode: Sit back with smooth hands-free auto-scrolling"}
                     >
-                        <div className={cn("w-2 h-2 rounded-full", isAutoScrolling ? "bg-white animate-ping" : "bg-white/20")} />
+                        <div className={cn("w-2 h-2 rounded-full", isAutoScrolling ? "bg-white animate-ping" : "bg-surface-400 dark:bg-white/30")} />
                         {isAutoScrolling ? "ZEN MODE ON" : "ZEN MODE OFF"}
                     </button>
 
+                    {/* Exit Chill Button */}
                     <button
                         onClick={onExit}
-                        className="group flex items-center gap-3 bg-white/5 hover:bg-white/15 border border-white/10 px-6 py-2.5 rounded-2xl transition-all duration-500"
+                        className="group flex items-center gap-3 bg-white/80 hover:bg-white dark:bg-white/5 dark:hover:bg-white/15 border border-surface-200 dark:border-white/10 px-5 py-2.5 rounded-2xl transition-all duration-300 text-surface-700 dark:text-white/70 hover:text-surface-900 dark:hover:text-white cursor-pointer shadow-xs"
                     >
-                        <span className="text-white/60 group-hover:text-white text-[10px] font-black uppercase tracking-widest transition-colors">Exit Chill</span>
-                        <X className="w-4 h-4 text-white/40 group-hover:text-white group-hover:rotate-90 transition-all duration-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Exit Chill</span>
+                        <X className="w-4 h-4 text-surface-400 group-hover:text-surface-900 dark:text-white/40 dark:group-hover:text-white group-hover:rotate-90 transition-all duration-300" />
                     </button>
                 </motion.div>
             </div>
@@ -173,7 +175,7 @@ export function ChillGallery({ onExit }: ChillGalleryProps) {
                     endReached={loadMore}
                     overscan={400}
                     style={{ height: "100%", width: "100%" }}
-                    listClassName="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6"
+                    listClassName="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 pb-12"
                     itemContent={(index, item) => (
                         <GalleryItem
                             key={item.id}
@@ -201,16 +203,16 @@ export function ChillGallery({ onExit }: ChillGalleryProps) {
                 <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    className="px-6 py-3 rounded-2xl bg-zinc-900/80 border border-white/10 backdrop-blur-xl pointer-events-auto flex items-center gap-8 shadow-2xl"
+                    className="px-6 py-3 rounded-2xl bg-white/90 dark:bg-zinc-900/85 border border-surface-200 dark:border-white/10 backdrop-blur-xl pointer-events-auto flex items-center gap-6 shadow-xl"
                 >
-                    <div className="flex items-center gap-3">
-                        <LayoutGrid className="w-4 h-4 text-brand-500" />
-                        <span className="text-white text-xs font-bold tracking-tight">{totalCount.toLocaleString()} Elements Discovered</span>
+                    <div className="flex items-center gap-2.5">
+                        <LayoutGrid className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                        <span className="text-surface-800 dark:text-white text-xs font-bold tracking-tight">{totalCount.toLocaleString()} Moments Discovered</span>
                     </div>
-                    <div className="w-px h-4 bg-white/10" />
-                    <div className="flex items-center gap-3 group cursor-help">
-                        <Eye className="w-4 h-4 text-blue-400" />
-                        <span className="text-white/60 text-[10px] font-medium uppercase tracking-wider group-hover:text-white transition-colors">Forensic Parallax Enabled</span>
+                    <div className="w-px h-4 bg-surface-200 dark:bg-white/10" />
+                    <div className="flex items-center gap-2.5 group cursor-help" title="Dynamic ambient background glow mirrors your hovered photo or video with smooth depth">
+                        <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <span className="text-surface-600 dark:text-white/60 text-[10px] font-medium uppercase tracking-wider group-hover:text-surface-900 dark:group-hover:text-white transition-colors">Ambient Backdrop Active</span>
                     </div>
                 </motion.div>
             </div>
@@ -233,7 +235,6 @@ function GalleryItem({
 }) {
     const src = safeConvertFileSrc(item.path);
 
-    // Optimized memoized styling
     const itemStyle = React.useMemo(() => ({
         contain: "layout style paint" as const,
         willChange: "transform" as const,
@@ -248,42 +249,42 @@ function GalleryItem({
             onMouseLeave={onMouseLeave}
             onClick={onClick}
             style={itemStyle}
-            className="group relative rounded-3xl overflow-hidden cursor-pointer bg-zinc-900 border border-white/10 hover:border-brand-500/50 transition-all duration-700 shadow-xl hover:shadow-brand-500/20 aspect-3/4"
+            className="group relative rounded-3xl overflow-hidden cursor-pointer bg-white dark:bg-zinc-900 border border-surface-200 dark:border-white/10 hover:border-brand-500/50 transition-all duration-500 shadow-md hover:shadow-xl hover:shadow-brand-500/15 aspect-3/4"
         >
-            {/* Glow Overlay */}
-            <div className="absolute inset-0 bg-linear-to-t from-zinc-950 via-transparent to-transparent opacity-40 group-hover:opacity-80 transition-opacity duration-700 z-10" />
+            {/* Dark vignette gradient for contrast of bottom labels */}
+            <div className="absolute inset-0 bg-linear-to-t from-surface-950/85 via-surface-950/20 to-transparent opacity-50 group-hover:opacity-80 transition-opacity duration-500 z-10" />
 
             {/* Media */}
             {item.media_type === "Video" ? (
-                <div className="w-full h-full relative overflow-hidden">
+                <div className="w-full h-full relative overflow-hidden bg-black">
                     <video
                         src={src}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-2000 ease-out"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
                         muted
                         loop
-                        onMouseOver={e => e.currentTarget.play()}
+                        onMouseOver={e => e.currentTarget.play().catch(() => {})}
                         onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                     />
-                    <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-xl rounded-full p-2.5 z-20 border border-white/10 group-hover:bg-brand-500 transition-colors">
-                        <Play className="w-3 h-3 text-white fill-current" />
+                    <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md rounded-full p-2.5 z-20 border border-white/15 group-hover:bg-brand-500 group-hover:border-brand-400 transition-colors shadow-lg">
+                        <Play className="w-3.5 h-3.5 text-white fill-current" />
                     </div>
                 </div>
             ) : (
                 <img
                     src={src}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-2000 ease-out"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
                     alt=""
                     loading="lazy"
                 />
             )}
 
             {/* Info Labels */}
-            <div className="absolute inset-0 p-5 z-20 flex flex-col justify-between opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0">
+            <div className="absolute inset-0 p-5 z-20 flex flex-col justify-between opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 text-white">
                 <div className="flex justify-between items-start">
-                    <div className="px-2 py-1 rounded-lg bg-zinc-950/60 backdrop-blur-md border border-white/10">
-                        <span className="text-[8px] font-black text-white/50 uppercase tracking-widest">{item.source}</span>
+                    <div className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/15">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-white/80">{item.source}</span>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-zinc-950 shadow-xl scale-0 group-hover:scale-100 transition-transform duration-500 delay-100">
+                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-zinc-950 shadow-xl scale-0 group-hover:scale-100 transition-transform duration-300 delay-75">
                         <ArrowRight className="w-4 h-4" />
                     </div>
                 </div>
@@ -291,13 +292,13 @@ function GalleryItem({
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
                         <Calendar className="w-3 h-3 text-brand-400" />
-                        <p className="text-white font-bold text-[11px] tracking-tight">
+                        <p className="font-bold text-[11px] tracking-tight text-white drop-shadow-sm">
                             {new Date(item.timestamp).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className={cn("w-1.5 h-1.5 rounded-full", item.media_type === 'Video' ? 'bg-amber-400' : 'bg-blue-400')} />
-                        <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
+                        <div className={cn("w-1.5 h-1.5 rounded-full", item.media_type === 'Video' ? 'bg-amber-400' : 'bg-brand-400')} />
+                        <p className="text-white/60 text-[9px] font-black uppercase tracking-[0.2em]">
                             {item.media_type} • {item.source === 'cloud' ? 'Downloaded' : 'Export File'}
                         </p>
                     </div>
@@ -305,7 +306,7 @@ function GalleryItem({
             </div>
 
             {/* Shimmer on Hover */}
-            <div className="absolute inset-0 -translate-x-[200%] group-hover:translate-x-[200%] transition-transform duration-1500 bg-linear-to-r from-transparent via-white/10 to-transparent pointer-events-none z-30" />
+            <div className="absolute inset-0 -translate-x-[200%] group-hover:translate-x-[200%] transition-transform duration-1000 bg-linear-to-r from-transparent via-white/15 to-transparent pointer-events-none z-30" />
         </motion.div>
     );
 }

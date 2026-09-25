@@ -16,7 +16,15 @@ import {
   Cloud,
   History,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare,
+  Camera,
+  Video,
+  Mic,
+  Smile,
+  HardDrive,
+  Film,
+  CheckCircle2
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -53,9 +61,40 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
     return stats.top_contacts.filter(([name]) => name !== ownerUsername);
   }, [stats]);
 
+  const breakdown = useMemo(() => {
+    if (!stats) return null;
+    return stats.breakdown || {
+      text_messages: Math.max(0, stats.total_messages - stats.total_media_files),
+      photo_snaps: stats.total_media_files,
+      video_snaps: 0,
+      audio_notes: 0,
+      stickers: 0,
+      saved_media_files: stats.total_media_files,
+      saved_memories: stats.total_memories,
+      memory_photos: stats.total_memories,
+      memory_videos: 0,
+      total_saved_media: stats.total_media_files + stats.total_memories,
+      total_saved_videos: 0,
+      total_saved_photos: stats.total_media_files + stats.total_memories,
+    };
+  }, [stats]);
+
+  const totalMsgs = stats?.total_messages || 1;
+  const textPct = breakdown ? Math.round((breakdown.text_messages / totalMsgs) * 100) : 0;
+  const photoPct = breakdown ? Math.round((breakdown.photo_snaps / totalMsgs) * 100) : 0;
+  const videoPct = breakdown ? Math.round((breakdown.video_snaps / totalMsgs) * 100) : 0;
+  const audioPct = breakdown ? Math.round((breakdown.audio_notes / totalMsgs) * 100) : 0;
+  const stickerPct = breakdown ? Math.max(0, 100 - (textPct + photoPct + videoPct + audioPct)) : 0;
+
+  const totalMediaPreserved = breakdown ? breakdown.total_saved_media : 0;
+  const totalMediaAttempted = totalMediaPreserved + (stats?.missing_media_count || 0);
+  const preservationRate = totalMediaAttempted > 0
+    ? ((totalMediaPreserved / totalMediaAttempted) * 100).toFixed(1)
+    : "100";
+
   if (loading && currentExport && !progress) {
     return (
-      <div className="flex-1 p-8 lg:p-12 overflow-y-auto bg-surface-50 dark:bg-surface-950">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto bg-surface-50 dark:bg-surface-950">
         <DashboardSkeleton />
       </div>
     );
@@ -97,6 +136,33 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
               <ChillStatCard value={stats.total_memories.toString()} label="Memories" icon="📸" delay={0.3} />
             </div>
 
+            {/* Secondary Media & Snap Stats */}
+            {stats.breakdown && (
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+                className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center"
+              >
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <p className="text-xl font-bold text-white">{stats.breakdown.photo_snaps.toLocaleString()}</p>
+                  <p className="text-xs text-surface-400">Photos & Snaps</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <p className="text-xl font-bold text-white">{stats.breakdown.video_snaps.toLocaleString()}</p>
+                  <p className="text-xs text-surface-400">Video Snaps</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <p className="text-xl font-bold text-white">{stats.breakdown.audio_notes.toLocaleString()}</p>
+                  <p className="text-xs text-surface-400">Voice Notes</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <p className="text-xl font-bold text-white">{stats.breakdown.total_saved_media.toLocaleString()}</p>
+                  <p className="text-xs text-surface-400">Media Preserved</p>
+                </div>
+              </motion.div>
+            )}
+
             {/* Journey Timeline */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -105,18 +171,18 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
             >
               <Card variant="glass" padding="lg" className="text-center">
                 <p className="text-surface-400 text-sm mb-2">Your Snapchat Journey</p>
-                <p className="text-2xl font-bold text-white">
+                <div className="text-xl sm:text-2xl font-bold text-white flex items-center justify-center flex-wrap gap-2">
                   {stats.start_date && stats.end_date ? (
                     <>
-                      {new Date(stats.start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                      <span className="text-brand-400 mx-3">→</span>
-                      {new Date(stats.end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                      <span>{new Date(stats.start_date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
+                      <span className="text-brand-400 mx-1 sm:mx-2">→</span>
+                      <span>{new Date(stats.end_date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
                     </>
                   ) : "Timeline Unknown"}
-                </p>
+                </div>
                 {stats.start_date && stats.end_date && (
-                  <p className="text-surface-500 text-sm mt-2">
-                    {Math.round((new Date(stats.end_date).getTime() - new Date(stats.start_date).getTime()) / (1000 * 60 * 60 * 24 * 365))} years of memories
+                  <p className="text-surface-400 text-sm mt-2">
+                    {formatDuration(stats.start_date, stats.end_date)} of memories
                   </p>
                 )}
               </Card>
@@ -160,59 +226,269 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
 
   // Pro Mode: Data-heavy, forensic dashboard
   return (
-    <div className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar bg-surface-50 dark:bg-surface-950">
-      <header className="mb-10 flex justify-between items-start">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold tracking-tight text-surface-900 dark:text-white">Archive Intelligence</h1>
-            <Badge variant="info" size="sm">FORENSIC</Badge>
-          </div>
-          <p className="text-surface-500 dark:text-surface-400 text-lg">Deep analysis and data reconstruction of your Snapchat export.</p>
-        </div>
-
-        <Button variant="outline" className="gap-2" onClick={() => onNavigate?.("search")}>
-          <Search className="w-4 h-4" />
-          Global Search
-        </Button>
-      </header>
-
-      {progress && <ProgressCard progress={progress} />}
-
-      {!currentExport && !progress && <EmptyState />}
-
-      {stats && !progress && (
-        <div className="space-y-8">
-          {/* Primary Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            <StatCard
-              label="Total Messages"
-              value={stats.total_messages.toLocaleString()}
-              icon={<BarChart3 className="w-4 h-4 text-brand-500" />}
-            />
-            <StatCard
-              label="Conversations"
-              value={stats.total_conversations.toString()}
-              icon={<Users className="w-4 h-4 text-accent-purple" />}
-            />
-            <StatCard
-              label="Memories"
-              value={stats.total_memories.toString()}
-              icon={<ImageIcon className="w-4 h-4 text-accent-pink" />}
-            />
-            <StatCard
-              label="Date Range"
-              icon={<Calendar className="w-4 h-4 text-accent-cyan" />}
-            >
-              <p className="text-lg font-bold text-surface-900 dark:text-white mt-2">
-                {stats.start_date ? new Date(stats.start_date).toLocaleDateString() : "N/A"}
-                <span className="mx-2 text-surface-300 dark:text-surface-600">→</span>
-                {stats.end_date ? new Date(stats.end_date).toLocaleDateString() : "N/A"}
-              </p>
-            </StatCard>
+    <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto custom-scrollbar bg-surface-50 dark:bg-surface-950">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-1.5">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-surface-900 dark:text-white">Archive Intelligence</h1>
+              <Badge variant="info" size="sm">FORENSIC</Badge>
+            </div>
+            <p className="text-surface-500 dark:text-surface-400 text-sm sm:text-base">Deep analysis and data reconstruction of your Snapchat export.</p>
           </div>
 
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <Button variant="outline" className="gap-2 self-start sm:self-auto" onClick={() => onNavigate?.("search")}>
+            <Search className="w-4 h-4" />
+            Global Search
+          </Button>
+        </header>
+
+        {progress && <ProgressCard progress={progress} />}
+
+        {!currentExport && !progress && <EmptyState />}
+
+        {stats && !progress && (
+          <div className="space-y-6">
+            {/* Primary Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
+              <StatCard
+                label="Total Messages"
+                value={stats.total_messages.toLocaleString()}
+                icon={<BarChart3 className="w-4 h-4 text-brand-500" />}
+              />
+              <StatCard
+                label="Conversations"
+                value={stats.total_conversations.toString()}
+                icon={<Users className="w-4 h-4 text-accent-purple" />}
+              />
+              <StatCard
+                label="Memories"
+                value={stats.total_memories.toString()}
+                icon={<ImageIcon className="w-4 h-4 text-accent-pink" />}
+              />
+              <StatCard
+                label="Date Range"
+                icon={<Calendar className="w-4 h-4 text-accent-cyan" />}
+              >
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Start</span>
+                    </div>
+                    <span
+                      className="text-xs sm:text-sm font-bold text-surface-900 dark:text-white tabular-nums truncate"
+                      title={stats.start_date ? new Date(stats.start_date).toLocaleString() : undefined}
+                    >
+                      {formatDate(stats.start_date)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-accent-cyan shrink-0" />
+                      <span className="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">End</span>
+                    </div>
+                    <span
+                      className="text-xs sm:text-sm font-bold text-surface-900 dark:text-white tabular-nums truncate"
+                      title={stats.end_date ? new Date(stats.end_date).toLocaleString() : undefined}
+                    >
+                      {formatDate(stats.end_date)}
+                    </span>
+                  </div>
+
+                  {stats.start_date && stats.end_date && (
+                    <div className="pt-2 border-t border-surface-100 dark:border-surface-800 flex items-center justify-between text-xs">
+                      <span className="text-surface-400 font-medium">Timespan</span>
+                      <span className="font-semibold text-accent-cyan">
+                        {formatDuration(stats.start_date, stats.end_date)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </StatCard>
+            </div>
+
+            {/* Detailed Content & Media Statistics */}
+            {breakdown && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+                {/* Message & Snap Composition */}
+                <Card variant="surface" padding="md" className="border-t-2 border-t-brand-500 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-500">
+                          <MessageSquare className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-surface-900 dark:text-white">Message & Snap Composition</h3>
+                          <p className="text-xs text-surface-400">Distribution across interaction formats</p>
+                        </div>
+                      </div>
+                      <Badge variant="default" size="sm">
+                        {stats.total_messages.toLocaleString()} Total
+                      </Badge>
+                    </div>
+
+                    {/* Segmented distribution bar */}
+                    <div className="mb-4">
+                      <div className="h-2 w-full rounded-full overflow-hidden flex bg-surface-100 dark:bg-surface-800">
+                        {textPct > 0 && (
+                          <div
+                            style={{ width: `${textPct}%` }}
+                            className="bg-brand-500 h-full transition-all"
+                            title={`Text: ${textPct}% (${breakdown.text_messages.toLocaleString()})`}
+                          />
+                        )}
+                        {photoPct > 0 && (
+                          <div
+                            style={{ width: `${photoPct}%` }}
+                            className="bg-accent-pink h-full transition-all"
+                            title={`Photos & Media: ${photoPct}% (${breakdown.photo_snaps.toLocaleString()})`}
+                          />
+                        )}
+                        {videoPct > 0 && (
+                          <div
+                            style={{ width: `${videoPct}%` }}
+                            className="bg-purple-500 h-full transition-all"
+                            title={`Videos: ${videoPct}% (${breakdown.video_snaps.toLocaleString()})`}
+                          />
+                        )}
+                        {audioPct > 0 && (
+                          <div
+                            style={{ width: `${audioPct}%` }}
+                            className="bg-amber-500 h-full transition-all"
+                            title={`Voice Notes: ${audioPct}% (${breakdown.audio_notes.toLocaleString()})`}
+                          />
+                        )}
+                        {stickerPct > 0 && (
+                          <div
+                            style={{ width: `${stickerPct}%` }}
+                            className="bg-emerald-500 h-full transition-all"
+                            title={`Stickers: ${stickerPct}% (${breakdown.stickers.toLocaleString()})`}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Metric tiles */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <BreakdownTile
+                        icon={<MessageSquare className="w-3.5 h-3.5" />}
+                        label="Text Messages"
+                        value={breakdown.text_messages.toLocaleString()}
+                        subtext={`${textPct}% of messages`}
+                        colorClass="bg-brand-500/10 text-brand-500"
+                      />
+                      <BreakdownTile
+                        icon={<Camera className="w-3.5 h-3.5" />}
+                        label="Photos & Snaps"
+                        value={breakdown.photo_snaps.toLocaleString()}
+                        subtext={`${photoPct}% of messages`}
+                        colorClass="bg-accent-pink/10 text-accent-pink"
+                      />
+                      <BreakdownTile
+                        icon={<Video className="w-3.5 h-3.5" />}
+                        label="Video Snaps"
+                        value={breakdown.video_snaps.toLocaleString()}
+                        subtext={`${videoPct}% of messages`}
+                        colorClass="bg-purple-500/10 text-purple-500"
+                      />
+                      <BreakdownTile
+                        icon={<Mic className="w-3.5 h-3.5" />}
+                        label="Voice Notes (Audio)"
+                        value={breakdown.audio_notes.toLocaleString()}
+                        subtext={`${audioPct}% of messages`}
+                        colorClass="bg-amber-500/10 text-amber-500"
+                      />
+                      <div className="sm:col-span-2">
+                        <BreakdownTile
+                          icon={<Smile className="w-3.5 h-3.5" />}
+                          label="Stickers & Reactions"
+                          value={breakdown.stickers.toLocaleString()}
+                          subtext={`${stickerPct}% of messages`}
+                          colorClass="bg-emerald-500/10 text-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Media Storage & Preservation */}
+                <Card variant="surface" padding="md" className="border-t-2 border-t-accent-purple flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-accent-purple/10 flex items-center justify-center text-accent-purple">
+                          <HardDrive className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-surface-900 dark:text-white">Media Vault & Preservation</h3>
+                          <p className="text-xs text-surface-400">Status of local & recovered media assets</p>
+                        </div>
+                      </div>
+                      <Badge variant={stats.missing_media_count === 0 ? "success" : "info"} size="sm">
+                        {preservationRate}% Preserved
+                      </Badge>
+                    </div>
+
+                    {/* Preservation rate bar */}
+                    <div className="mb-4">
+                      <div className="flex justify-between text-xs mb-1.5 font-medium">
+                        <span className="text-surface-500 dark:text-surface-400">Preserved On Disk</span>
+                        <span className="text-surface-800 dark:text-surface-200 font-mono font-bold">
+                          {breakdown.total_saved_media.toLocaleString()} / {totalMediaAttempted.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-2 overflow-hidden">
+                        <div
+                          style={{ width: `${Math.min(100, Number(preservationRate))}%` }}
+                          className={cn(
+                            "h-full rounded-full transition-all duration-700",
+                            Number(preservationRate) >= 90 ? "bg-green-500" : Number(preservationRate) >= 70 ? "bg-amber-500" : "bg-red-500"
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Metric tiles */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <BreakdownTile
+                        icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                        label="Saved Media Files"
+                        value={breakdown.total_saved_media.toLocaleString()}
+                        subtext="Recovered on disk"
+                        colorClass="bg-green-500/10 text-green-500"
+                      />
+                      <BreakdownTile
+                        icon={<Film className="w-3.5 h-3.5" />}
+                        label="Saved Videos"
+                        value={breakdown.total_saved_videos.toLocaleString()}
+                        subtext="Snaps & memories"
+                        colorClass="bg-purple-500/10 text-purple-500"
+                      />
+                      <BreakdownTile
+                        icon={<ImageIcon className="w-3.5 h-3.5" />}
+                        label="Saved Photos"
+                        value={breakdown.total_saved_photos.toLocaleString()}
+                        subtext="Snaps & memories"
+                        colorClass="bg-accent-pink/10 text-accent-pink"
+                      />
+                      <BreakdownTile
+                        icon={<AlertTriangle className="w-3.5 h-3.5" />}
+                        label="Missing / Unlinked"
+                        value={stats.missing_media_count.toLocaleString()}
+                        subtext={stats.missing_media_count === 0 ? "All files resolved" : "Pending export links"}
+                        colorClass={stats.missing_media_count === 0 ? "bg-green-500/10 text-green-500" : "bg-amber-500/10 text-amber-500"}
+                      />
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-5">
             <Card variant="surface" className="flex items-center gap-4 p-5 hover:border-brand-500/50 cursor-pointer group transition-all" onClick={() => onNavigate?.("chats")}>
               <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-500 group-hover:bg-brand-500 group-hover:text-white transition-all">
                 <History className="w-6 h-6" />
@@ -312,7 +588,8 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
       )}
       <AIAttribution />
     </div>
-  );
+  </div>
+);
 }
 
 // --- Supporting Components ---
@@ -339,27 +616,27 @@ function AIAttribution() {
 
 function ProgressCard({ progress }: { progress: IngestionProgress }) {
   return (
-    <Card variant="elevated" padding="lg" className="bg-surface-900 text-white mb-8 overflow-hidden relative">
+    <Card variant="elevated" padding="lg" className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-surface-900 dark:text-white shadow-xl mb-8 overflow-hidden relative">
       <div className="flex justify-between items-center mb-4 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center animate-pulse">
+          <div className="w-10 h-10 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-brand-500/30">
             <Loader2 className="w-5 h-5 animate-spin" />
           </div>
-          <h3 className="text-lg font-bold">{progress.current_step}</h3>
+          <h3 className="text-lg font-bold text-surface-900 dark:text-white">{progress.current_step}</h3>
         </div>
-        <span className="text-xl font-mono text-brand-400">{(progress.progress * 100).toFixed(0)}%</span>
+        <span className="text-xl font-mono font-bold text-brand-600 dark:text-brand-400">{(progress.progress * 100).toFixed(0)}%</span>
       </div>
-      <div className="w-full bg-surface-800 rounded-full h-3 mb-4 overflow-hidden relative z-10">
+      <div className="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-3 mb-4 overflow-hidden relative z-10 p-0.5 border border-surface-200 dark:border-transparent">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${progress.progress * 100}%` }}
-          className="bg-linear-to-r from-brand-500 to-accent-cyan h-full rounded-full transition-all duration-700 ease-out"
+          className="bg-linear-to-r from-brand-500 to-accent-cyan h-full rounded-full transition-all duration-700 ease-out shadow-xs"
         />
       </div>
-      <p className="text-surface-400 relative z-10">{progress.message}</p>
+      <p className="text-surface-600 dark:text-surface-400 text-sm font-medium relative z-10">{progress.message}</p>
 
       {/* Decorative background pulse */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/10 blur-3xl -mr-32 -mt-32 rounded-full animate-pulse" />
+      <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/10 blur-3xl -mr-32 -mt-32 rounded-full animate-pulse pointer-events-none" />
     </Card>
   );
 }
@@ -397,6 +674,68 @@ function EmptyState() {
   );
 }
 
+
+function BreakdownTile({
+  icon,
+  label,
+  value,
+  subtext,
+  colorClass,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  subtext?: string;
+  colorClass?: string;
+}) {
+  return (
+    <div className="p-3 rounded-xl bg-surface-100/70 dark:bg-surface-900/60 border border-surface-200/50 dark:border-surface-800/80 flex items-center justify-between gap-3 min-w-0 transition-colors hover:border-surface-300 dark:hover:border-surface-700">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm", colorClass)}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-surface-700 dark:text-surface-300 truncate">{label}</p>
+          {subtext && <p className="text-[10px] text-surface-400 font-mono">{subtext}</p>}
+        </div>
+      </div>
+      <span className="text-sm font-bold font-mono text-surface-900 dark:text-white shrink-0 tabular-nums">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "N/A";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatDuration(startDateStr: string | null, endDateStr: string | null): string | null {
+  if (!startDateStr || !endDateStr) return null;
+  const start = new Date(startDateStr).getTime();
+  const end = new Date(endDateStr).getTime();
+  if (isNaN(start) || isNaN(end) || end < start) return null;
+
+  const totalDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)));
+  if (totalDays < 30) {
+    return `${totalDays} ${totalDays === 1 ? "day" : "days"}`;
+  }
+  const totalMonths = Math.round(totalDays / 30.4375);
+  if (totalMonths < 12) {
+    return `${totalMonths} ${totalMonths === 1 ? "month" : "months"}`;
+  }
+  const years = (totalDays / 365.25).toFixed(1);
+  const cleanYears = years.endsWith(".0") ? years.slice(0, -2) : years;
+  return `${cleanYears} ${cleanYears === "1" ? "year" : "years"}`;
+}
+
 function StatCard({ label, value, icon, children }: {
   label: string;
   value?: string;
@@ -404,12 +743,14 @@ function StatCard({ label, value, icon, children }: {
   children?: React.ReactNode;
 }) {
   return (
-    <Card variant="surface" padding="lg" className="hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <span className="text-surface-400 font-semibold text-xs uppercase tracking-wider">{label}</span>
-        {icon}
+    <Card variant="surface" padding="md" className="hover:shadow-md transition-shadow h-full flex flex-col justify-between">
+      <div>
+        <div className="flex items-start justify-between">
+          <span className="text-surface-400 font-semibold text-xs uppercase tracking-wider">{label}</span>
+          {icon}
+        </div>
+        {value && <p className="text-3xl lg:text-4xl font-black text-surface-900 dark:text-white mt-2 tracking-tight">{value}</p>}
       </div>
-      {value && <p className="text-4xl font-black text-surface-900 dark:text-white mt-2">{value}</p>}
       {children}
     </Card>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { ConversationList } from "./components/ConversationList";
 import { ChatView } from "./components/ChatView";
@@ -77,14 +77,66 @@ function App() {
     };
   }, [checkData, addToast]);
 
+  const isPopStateRef = useRef(false);
+
+  const navigateTo = useCallback((page: string, convoId: string | null = null) => {
+    setActivePage(page);
+    setSelectedConvo(convoId);
+    if (!isPopStateRef.current) {
+      window.history.pushState({ page, convoId }, "");
+    }
+  }, []);
+
+  const handleSelectConvo = useCallback((convoId: string | null) => {
+    setSelectedConvo(convoId);
+    if (!isPopStateRef.current) {
+      window.history.pushState({ page: "chats", convoId }, "");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.history.replaceState({ page: activePage, convoId: selectedConvo }, "");
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state?.modal) return;
+      isPopStateRef.current = true;
+      if (e.state) {
+        if (e.state.page) setActivePage(e.state.page);
+        setSelectedConvo(e.state.convoId || null);
+      } else {
+        setActivePage("dashboard");
+        setSelectedConvo(null);
+      }
+      setTimeout(() => {
+        isPopStateRef.current = false;
+      }, 0);
+    };
+
+    const handleMouseBack = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        window.history.back();
+      } else if (e.button === 4) {
+        e.preventDefault();
+        window.history.forward();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("auxclick", handleMouseBack);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("auxclick", handleMouseBack);
+    };
+  }, []);
+
   function handleSelectExport(exp: ExportSet) {
     setCurrentExport(exp);
-    setActivePage("dashboard");
+    navigateTo("dashboard");
   }
 
   function handleNavigateToChat(conversationId: string) {
-    setSelectedConvo(conversationId);
-    setActivePage("chats");
+    navigateTo("chats", conversationId);
   }
 
   async function handleResetData() {
@@ -172,7 +224,7 @@ function App() {
       )}>
         <Sidebar
           onSelectExport={handleSelectExport}
-          onNavigate={(page) => { setActivePage(page); if (window.innerWidth < 768) setSidebarOpen(false); }}
+          onNavigate={(page) => { navigateTo(page, page === "chats" ? selectedConvo : null); if (window.innerWidth < 768) setSidebarOpen(false); }}
           onOpenSetup={() => setShowSetup(true)}
           onOpenAbout={() => setShowAbout(true)}
           onResetData={handleResetData}
@@ -218,13 +270,13 @@ function App() {
               className="flex-1 flex overflow-hidden h-full w-full"
             >
               {activePage === "dashboard" && (
-                <Dashboard currentExport={currentExport} progress={progress} viewMode={viewMode} onNavigate={setActivePage} />
+                <Dashboard currentExport={currentExport} progress={progress} viewMode={viewMode} onNavigate={navigateTo} />
               )}
 
               {activePage === "chats" && (
                 <>
                   <ConversationList
-                    onSelect={setSelectedConvo}
+                    onSelect={handleSelectConvo}
                     selectedId={selectedConvo}
                     refreshTrigger={refreshTrigger}
                   />
@@ -243,9 +295,9 @@ function App() {
                 <SearchView onNavigateToChat={handleNavigateToChat} addToast={addToast} />
               )}
 
-              {activePage === "gallery" && <GalleryView />}
+              {activePage === "gallery" && <GalleryView addToast={addToast} />}
 
-              {activePage === "memories" && <MemoriesView />}
+              {activePage === "memories" && <MemoriesView addToast={addToast} />}
             </motion.div>
           )}
         </AnimatePresence>
@@ -259,24 +311,24 @@ function App() {
       {progress && activePage !== "dashboard" && (
         <div
           onClick={() => setActivePage("dashboard")}
-          className="fixed bottom-6 right-6 z-50 bg-surface-900/95 backdrop-blur-md border border-brand-500/40 shadow-2xl rounded-2xl p-4 max-w-sm w-full cursor-pointer hover:border-brand-400 transition-all text-white"
+          className="fixed bottom-6 right-6 z-50 bg-white/95 dark:bg-surface-900/95 backdrop-blur-md border border-brand-500/40 shadow-2xl rounded-2xl p-4 max-w-sm w-full cursor-pointer hover:border-brand-400 transition-all text-surface-900 dark:text-white"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-brand-400 animate-ping" />
+            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-brand-500 animate-ping" />
               {progress.current_step}
             </span>
-            <span className="font-mono text-xs font-black">
+            <span className="font-mono text-xs font-black text-brand-600 dark:text-brand-400">
               {Math.round(progress.progress * 100)}%
             </span>
           </div>
-          <div className="w-full bg-surface-800 rounded-full h-1.5 mb-2 overflow-hidden">
+          <div className="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-1.5 mb-2 overflow-hidden border border-surface-200 dark:border-transparent">
             <div
               className="bg-linear-to-r from-brand-500 to-accent-cyan h-full rounded-full transition-all duration-300"
               style={{ width: `${progress.progress * 100}%` }}
             />
           </div>
-          <p className="text-xs text-surface-400 truncate">{progress.message}</p>
+          <p className="text-xs text-surface-600 dark:text-surface-400 font-medium truncate">{progress.message}</p>
         </div>
       )}
     </div>

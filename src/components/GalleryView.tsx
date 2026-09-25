@@ -7,7 +7,11 @@ import { MediaThumbnail } from "./ui/MediaThumbnail";
 import { MediaViewer } from "./ui/MediaViewer";
 import { Image as ImageIcon, Loader2 } from "lucide-react";
 
-export function GalleryView() {
+interface GalleryViewProps {
+  addToast?: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
+}
+
+export function GalleryView({ addToast }: GalleryViewProps = {}) {
   const [media, setMedia] = useState<MediaStreamEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -65,28 +69,28 @@ export function GalleryView() {
   , [filtered]);
 
   return (
-    <div className="flex-1 flex flex-col bg-zinc-950/20 backdrop-blur-xs h-full overflow-hidden">
+    <div className="flex-1 flex flex-col bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-100 h-full overflow-hidden">
       {/* Header */}
-      <header className="px-8 py-6 flex items-center justify-between">
+      <header className="px-8 py-6 flex items-center justify-between border-b border-surface-200/80 dark:border-surface-800/80 bg-white/50 dark:bg-surface-900/40 backdrop-blur-xs">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <ImageIcon className="w-8 h-8 text-purple-500" />
+          <h1 className="text-3xl font-black text-surface-900 dark:text-white tracking-tight flex items-center gap-3">
+            <ImageIcon className="w-8 h-8 text-purple-600 dark:text-purple-500" />
             Gallery
           </h1>
-          <p className="text-sm text-white/40 font-medium mt-1">
+          <p className="text-sm text-surface-500 dark:text-surface-400 font-medium mt-1">
             {totalCount.toLocaleString()} items total • {filtered.length.toLocaleString()} visible
           </p>
         </div>
-        <div className="flex gap-1.5 bg-white/5 border border-white/10 p-1 rounded-2xl backdrop-blur-md">
+        <div className="flex gap-1.5 bg-white dark:bg-surface-900/60 border border-surface-200 dark:border-surface-800 p-1 rounded-2xl shadow-xs backdrop-blur-md">
           {(["all", "Image", "Video"] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                "px-5 py-2 rounded-xl text-sm font-bold transition-all",
+                "px-5 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer",
                 filter === f
-                  ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-                  : "text-white/40 hover:text-white/60 hover:bg-white/5"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
+                  : "text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-surface-800/80"
               )}
             >
               {f === "all" ? "All" : f === "Image" ? "Photos" : "Videos"}
@@ -98,22 +102,22 @@ export function GalleryView() {
       {/* Content */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
+          <Loader2 className="w-10 h-10 text-purple-600 dark:text-purple-500 animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex-1 flex items-center justify-center flex-col gap-6 text-center animate-in fade-in zoom-in">
-          <div className="w-24 h-24 rounded-3xl bg-white/5 flex items-center justify-center border border-white/10 shadow-2xl">
-            <ImageIcon className="w-12 h-12 text-white/20" />
+          <div className="w-24 h-24 rounded-3xl bg-white dark:bg-surface-900 flex items-center justify-center border border-surface-200 dark:border-surface-800 shadow-md">
+            <ImageIcon className="w-12 h-12 text-surface-300 dark:text-surface-600" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-white font-black text-2xl tracking-tight">No media found</h3>
-            <p className="text-white/40 max-w-sm text-sm font-medium">
+            <h3 className="text-surface-900 dark:text-white font-black text-2xl tracking-tight">No media found</h3>
+            <p className="text-surface-500 dark:text-surface-400 max-w-sm text-sm font-medium">
               Your Snapchat export may not include media files in the expected locations.
             </p>
           </div>
         </div>
       ) : (
-        <div className="flex-1 px-8 pb-8 overflow-hidden">
+        <div className="flex-1 px-8 pt-6 pb-8 overflow-hidden">
           <VirtuosoGrid
             style={{ height: "100%" }}
             totalCount={filtered.length}
@@ -139,7 +143,7 @@ export function GalleryView() {
 
       {/* Loading more indicator */}
       {loadingMore && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 py-2 px-4 rounded-full bg-purple-600/90 text-white text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 py-2 px-4 rounded-full bg-purple-600 text-white text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2">
           <Loader2 className="w-3 h-3 animate-spin" />
           Loading more...
         </div>
@@ -151,6 +155,7 @@ export function GalleryView() {
         items={viewerItems}
         currentIndex={viewerIndex}
         onIndexChange={setViewerIndex}
+        addToast={addToast}
       />
     </div>
   );

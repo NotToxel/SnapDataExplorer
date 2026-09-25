@@ -115,8 +115,8 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
   const isDone = progress?.current_step === "Complete" || importResult !== null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-surface-950/95 backdrop-blur-xl flex items-center justify-center p-8">
-      <Card variant="elevated" padding="none" className="max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh] shadow-2xl border-surface-800">
+    <div className="fixed inset-0 z-50 bg-black/60 dark:bg-surface-950/95 backdrop-blur-xl flex items-center justify-center p-8">
+      <Card variant="elevated" padding="none" className="max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh] shadow-2xl border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900">
         {/* Header */}
         <div className="p-8 border-b border-surface-100 dark:border-surface-800 bg-linear-to-br from-surface-50 to-white dark:from-surface-800 dark:to-brand-950/20">
           <div className="flex items-center gap-5 mb-2">
@@ -147,27 +147,27 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-lg shadow-brand-500/20 family-mono">1</span>
-                  <p className="text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
-                    Visit <code className="font-mono text-brand-500 bg-brand-500/10 px-1 rounded-sm">accounts.snapchat.com</code>
+                  <span className="w-6 h-6 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-lg shadow-brand-500/20 font-mono">1</span>
+                  <p className="text-sm text-surface-700 dark:text-surface-400 leading-relaxed">
+                    Visit <code className="font-mono text-brand-600 dark:text-brand-500 bg-brand-500/10 px-1 rounded-sm">accounts.snapchat.com</code>
                   </p>
                 </div>
                 <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-lg shadow-brand-500/20 family-mono">2</span>
-                  <p className="text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
-                    Request your <span className="text-white font-medium">"My Data"</span> export.
+                  <span className="w-6 h-6 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-lg shadow-brand-500/20 font-mono">2</span>
+                  <p className="text-sm text-surface-700 dark:text-surface-400 leading-relaxed">
+                    Request your <span className="text-surface-900 dark:text-white font-bold">"My Data"</span> export.
                   </p>
                 </div>
                 <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-lg shadow-brand-500/20 family-mono">3</span>
-                  <p className="text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
-                    Download the <span className="text-white font-medium">ZIP archive</span> when it's ready.
+                  <span className="w-6 h-6 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-lg shadow-brand-500/20 font-mono">3</span>
+                  <p className="text-sm text-surface-700 dark:text-surface-400 leading-relaxed">
+                    Download the <span className="text-surface-900 dark:text-white font-bold">ZIP archive</span> when it's ready.
                   </p>
                 </div>
                 <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-lg shadow-brand-500/20 family-mono">4</span>
-                  <p className="text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
-                    Select the <strong>ZIP</strong> or its folder below.
+                  <span className="w-6 h-6 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-lg shadow-brand-500/20 font-mono">4</span>
+                  <p className="text-sm text-surface-700 dark:text-surface-400 leading-relaxed">
+                    Select the <strong className="text-surface-900 dark:text-white font-bold">ZIP</strong> or its folder below.
                   </p>
                 </div>
               </div>
@@ -180,20 +180,20 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
               <div className="flex justify-between items-end">
                 <div>
                   <h3 className="text-2xl font-bold text-surface-900 dark:text-white mb-1">{progress.current_step}</h3>
-                  <p className="text-surface-500 dark:text-surface-400">{progress.message}</p>
+                  <p className="text-surface-600 dark:text-surface-400 font-medium">{progress.message}</p>
                 </div>
-                <span className="text-brand-400 font-mono font-black text-3xl">
+                <span className="text-brand-600 dark:text-brand-400 font-mono font-black text-3xl">
                   {Math.round(progress.progress * 100)}%
                 </span>
               </div>
-              <div className="h-4 w-full bg-surface-100 dark:bg-surface-800 rounded-full overflow-hidden p-1 shadow-inner">
+              <div className="h-4 w-full bg-surface-100 dark:bg-surface-800 rounded-full overflow-hidden p-1 shadow-inner border border-surface-200 dark:border-transparent">
                 <div
                   className="h-full bg-linear-to-r from-brand-500 via-accent-purple to-accent-cyan transition-all duration-500 ease-out rounded-full shadow-lg"
                   style={{ width: `${progress.progress * 100}%` }}
                 />
               </div>
-              <div className="bg-surface-800/50 p-4 rounded-xl border border-surface-700">
-                <p className="text-center text-sm text-surface-400 leading-relaxed">
+              <div className="bg-surface-50 dark:bg-surface-800/50 p-4 rounded-xl border border-surface-200 dark:border-surface-700">
+                <p className="text-center text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
                   We're performing deep reconstruction of your history. For large archives, this process handles thousands of media links and chat events.
                 </p>
               </div>
@@ -221,20 +221,20 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
                 <h3 className="text-3xl font-black text-surface-900 dark:text-white mb-2">
                   {importResult.errors.length > 0 ? "Import Partial" : "System Primed"}
                 </h3>
-                <p className="text-surface-400">Your Snapchat archive has been successfully reconstructed locally.</p>
+                <p className="text-surface-600 dark:text-surface-400">Your Snapchat archive has been successfully reconstructed locally.</p>
               </div>
 
               <div className="grid grid-cols-3 gap-5">
-                <Card variant="surface" padding="lg" className="text-center border-surface-800 bg-surface-900/40">
-                  <p className="text-3xl font-black text-brand-400 mb-1">{importResult.conversations_parsed}</p>
+                <Card variant="surface" padding="lg" className="text-center border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/40">
+                  <p className="text-3xl font-black text-brand-600 dark:text-brand-400 mb-1">{importResult.conversations_parsed}</p>
                   <p className="text-[10px] font-bold text-surface-500 uppercase tracking-widest leading-none">Chats</p>
                 </Card>
-                <Card variant="surface" padding="lg" className="text-center border-surface-800 bg-surface-900/40">
-                  <p className="text-3xl font-black text-brand-400 mb-1">{importResult.events_parsed.toLocaleString()}</p>
+                <Card variant="surface" padding="lg" className="text-center border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/40">
+                  <p className="text-3xl font-black text-brand-600 dark:text-brand-400 mb-1">{importResult.events_parsed.toLocaleString()}</p>
                   <p className="text-[10px] font-bold text-surface-500 uppercase tracking-widest leading-none">Events</p>
                 </Card>
-                <Card variant="surface" padding="lg" className="text-center border-surface-800 bg-surface-900/40">
-                  <p className="text-3xl font-black text-brand-400 mb-1">{importResult.memories_parsed}</p>
+                <Card variant="surface" padding="lg" className="text-center border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/40">
+                  <p className="text-3xl font-black text-brand-600 dark:text-brand-400 mb-1">{importResult.memories_parsed}</p>
                   <p className="text-[10px] font-bold text-surface-500 uppercase tracking-widest leading-none">Memories</p>
                 </Card>
               </div>
@@ -258,7 +258,7 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
                 </div>
               )}
 
-              <Button onClick={onComplete} size="lg" className="w-full h-14 text-lg font-bold shadow-brand-500/20 shadow-xl">
+              <Button onClick={onComplete} size="lg" className="w-full h-14 text-lg font-bold shadow-brand-500/20 shadow-xl cursor-pointer">
                 Launch Dashboard
               </Button>
             </div>
@@ -286,13 +286,13 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
                     {detected.length > 0 && <Badge variant="info">{detected.length}</Badge>}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={handlePickZip} className="hover:bg-surface-800">
+                    <Button variant="ghost" size="sm" onClick={handlePickZip} className="hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-300">
                       Zip File
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handlePickFolder} className="hover:bg-surface-800">
+                    <Button variant="ghost" size="sm" onClick={handlePickFolder} className="hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-300">
                       Folder
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleScan} disabled={loading} className="border-surface-700">
+                    <Button variant="outline" size="sm" onClick={handleScan} disabled={loading} className="border-surface-300 dark:border-surface-700 text-surface-700 dark:text-surface-300">
                       <svg className={cn("w-4 h-4 mr-2", loading && "animate-spin")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
@@ -302,8 +302,8 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
                 </div>
 
                 {loading ? (
-                  <div className="py-20 flex flex-col items-center justify-center gap-6 text-surface-500 bg-surface-900/30 rounded-3xl border border-surface-800 border-dashed">
-                    <div className="w-16 h-16 border-4 border-surface-800 border-t-brand-500 rounded-full animate-spin" />
+                  <div className="py-20 flex flex-col items-center justify-center gap-6 text-surface-500 bg-surface-50 dark:bg-surface-900/30 rounded-3xl border border-surface-200 dark:border-surface-800 border-dashed">
+                    <div className="w-16 h-16 border-4 border-surface-200 dark:border-surface-800 border-t-brand-500 rounded-full animate-spin" />
                     <p className="font-bold tracking-widest uppercase text-xs">Accessing File System...</p>
                   </div>
                 ) : detected.length > 0 ? (
@@ -313,10 +313,10 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
                         key={exp.id}
                         variant="glass"
                         padding="md"
-                        className="group hover:border-brand-500/50 hover:bg-brand-500/5 transition-all duration-300 flex items-center justify-between border-surface-800 backdrop-blur-xs"
+                        className="group hover:border-brand-500/50 hover:bg-brand-500/5 transition-all duration-300 flex items-center justify-between border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900/40 shadow-xs backdrop-blur-xs"
                       >
                         <div className="flex items-center gap-5 min-w-0">
-                          <div className="w-14 h-14 bg-surface-800 rounded-2xl flex items-center justify-center group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors shrink-0">
+                          <div className="w-14 h-14 bg-surface-100 dark:bg-surface-800 rounded-2xl flex items-center justify-center text-surface-600 dark:text-surface-300 group-hover:bg-brand-500/20 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors shrink-0">
                             {exp.source_type === "Zip" ? (
                               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -328,7 +328,7 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="font-bold text-white group-hover:text-brand-400 transition-colors truncate">
+                            <h4 className="font-bold text-surface-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors truncate">
                               {exp.id}
                             </h4>
                             <p className="text-[10px] text-surface-500 font-mono mt-1 truncate max-w-[300px]" title={exp.source_paths.join(', ')}>
@@ -349,7 +349,7 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
                         <Button
                           onClick={() => handleProcess(exp)}
                           variant={exp.validation_status === "Valid" ? "solid" : "outline"}
-                          className="shrink-0 font-bold ml-4"
+                          className="shrink-0 font-bold ml-4 cursor-pointer"
                         >
                           Process
                         </Button>
@@ -357,19 +357,19 @@ export function SetupFlow({ onComplete, progress, addToast }: SetupFlowProps) {
                     ))}
                   </div>
                 ) : !error ? (
-                  <div className="py-20 text-center bg-surface-900/30 rounded-3xl border-2 border-dashed border-surface-800 flex flex-col items-center">
-                    <div className="w-20 h-20 rounded-3xl bg-surface-800 flex items-center justify-center mb-6 shadow-xl">
-                      <svg className="w-10 h-10 text-surface-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="py-20 text-center bg-surface-50 dark:bg-surface-900/30 rounded-3xl border-2 border-dashed border-surface-200 dark:border-surface-800 flex flex-col items-center">
+                    <div className="w-20 h-20 rounded-3xl bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 flex items-center justify-center mb-6 shadow-md">
+                      <svg className="w-10 h-10 text-surface-400 dark:text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-2">Manual Selection Required</h3>
-                    <p className="text-surface-500 max-w-sm mb-8 leading-relaxed">
+                    <h3 className="text-xl font-bold text-surface-900 dark:text-white mb-2">Manual Selection Required</h3>
+                    <p className="text-surface-600 dark:text-surface-400 max-w-sm mb-8 leading-relaxed">
                       We couldn't find any Snapchat data in standard locations. Please point us to your archive.
                     </p>
                     <div className="flex gap-4">
-                      <Button onClick={handlePickZip} className="px-8 font-bold">Zip Archive</Button>
-                      <Button variant="outline" onClick={handlePickFolder} className="px-8 border-surface-700">Folder</Button>
+                      <Button onClick={handlePickZip} className="px-8 font-bold cursor-pointer">Zip Archive</Button>
+                      <Button variant="outline" onClick={handlePickFolder} className="px-8 border-surface-300 dark:border-surface-700 text-surface-700 dark:text-surface-300 cursor-pointer">Folder</Button>
                     </div>
                   </div>
                 ) : null}
