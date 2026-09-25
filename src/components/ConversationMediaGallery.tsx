@@ -366,7 +366,6 @@ export const ConversationMediaGallery: React.FC<ConversationMediaGalleryProps> =
                                 <MediaThumbnail
                                     path={item.media_path || undefined}
                                     mediaType={item.media_type || 'Image'}
-                                    status="Downloaded"
                                     timestamp={item.timestamp}
                                     onClick={() => setViewerIndex(idx)}
                                 />

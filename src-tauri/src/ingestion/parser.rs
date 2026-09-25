@@ -250,15 +250,6 @@ impl MemoryParser {
 
                 let (latitude, longitude) = Self::parse_location(location_str);
 
-                let download_url = entry
-                    .get("Media Download Url")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-                let proxy_url = entry
-                    .get("Download Link")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-
                 memories.push(Memory {
                     id: Uuid::new_v4().to_string(),
                     timestamp,
@@ -266,10 +257,8 @@ impl MemoryParser {
                     latitude,
                     longitude,
                     media_path: None,
+                    overlay_path: None,
                     export_id: export_id.to_string(),
-                    download_url,
-                    proxy_url,
-                    download_status: crate::models::DownloadStatus::Pending,
                 });
             }
         }

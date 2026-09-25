@@ -88,14 +88,6 @@ pub struct Person {
     pub display_name: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub enum DownloadStatus {
-    Pending,
-    Downloading,
-    Downloaded,
-    Failed,
-}
-
 /// A saved Snapchat memory.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Memory {
@@ -106,10 +98,39 @@ pub struct Memory {
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
     pub media_path: Option<PathBuf>,
+    pub overlay_path: Option<PathBuf>,
     pub export_id: String,
-    pub download_url: Option<String>,
-    pub proxy_url: Option<String>,
-    pub download_status: DownloadStatus,
+}
+
+/// Options for exporting memories with EXIF tagging and organization.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ExportMemoriesOptions {
+    pub export_id: String,
+    pub memory_ids: Option<Vec<String>>,
+    pub target_dir: PathBuf,
+    pub naming_format: Option<String>,
+    pub folder_structure: Option<String>,
+    pub composite_overlay: Option<bool>,
+    pub embed_exif: Option<bool>,
+    pub set_file_times: Option<bool>,
+}
+
+/// Real-time progress updates emitted during memory export.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ExportMemoriesProgress {
+    pub current: usize,
+    pub total: usize,
+    pub current_file: String,
+    pub percentage: f32,
+}
+
+/// Summary result of a memory export operation.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ExportMemoriesResult {
+    pub exported_count: usize,
+    pub failed_count: usize,
+    pub target_dir: PathBuf,
+    pub errors: Vec<String>,
 }
 
 /// Detailed content and media type breakdown.

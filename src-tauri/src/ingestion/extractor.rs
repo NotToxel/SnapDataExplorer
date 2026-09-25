@@ -70,7 +70,7 @@ impl ZipExtractor {
                 };
 
                 let name_str = file.name();
-                if (name_str.contains("chat_media/") || name_str.contains("media/")) && !name_str.ends_with('/') {
+                if (name_str.contains("chat_media/") || name_str.contains("media/") || name_str.contains("memories/")) && !name_str.ends_with('/') {
                     if let Some(unix) = zip_datetime_to_unix(file.last_modified()) {
                         if let Some(filename) = outpath.file_name().and_then(|n| n.to_str()) {
                             timestamps.insert(filename.to_string(), unix);

@@ -131,7 +131,6 @@ export function GalleryView({ addToast }: GalleryViewProps = {}) {
                 <MediaThumbnail
                   path={item.path}
                   mediaType={item.media_type}
-                  status="Downloaded"
                   timestamp={item.timestamp || undefined}
                   onClick={() => setViewerIndex(index)}
                 />

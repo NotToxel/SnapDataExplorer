@@ -1,15 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Image as ImageIcon, Cloud, CheckCircle, Clock, AlertCircle, Volume2 } from 'lucide-react';
+import { Play, Image as ImageIcon, Volume2, Layers } from 'lucide-react';
 import { cn, safeConvertFileSrc } from '../../lib/utils';
-import { DownloadStatus, DownloadProgress } from '../../types';
 
 interface MediaThumbnailProps {
     path?: string;
     remoteUrl?: string;
     mediaType: string; // "Image" | "Video" | "Audio"
-    status: DownloadStatus;
-    progress?: DownloadProgress;
+    hasOverlay?: boolean;
     isSelected?: boolean;
     onSelect?: (selected: boolean) => void;
     onClick?: () => void;
@@ -21,8 +19,7 @@ export const MediaThumbnail = React.memo(({
     path,
     remoteUrl,
     mediaType,
-    status,
-    progress,
+    hasOverlay,
     isSelected,
     onSelect,
     onClick,
@@ -48,21 +45,6 @@ export const MediaThumbnail = React.memo(({
         if (!rawSrc || !isVideo) return null;
         return rawSrc.includes('#') ? rawSrc : `${rawSrc}#t=0.001`;
     }, [rawSrc, isVideo]);
-
-    const renderStatusIcon = () => {
-        switch (status) {
-            case 'Pending':
-                return <Cloud className="w-4 h-4 text-blue-400" />;
-            case 'Downloading':
-                return <Clock className="w-4 h-4 text-yellow-400 animate-pulse" />;
-            case 'Downloaded':
-                return <CheckCircle className="w-4 h-4 text-green-400" />;
-            case 'Failed':
-                return <AlertCircle className="w-4 h-4 text-red-400" />;
-            default:
-                return null;
-        }
-    };
 
     return (
         <motion.div
@@ -126,42 +108,34 @@ export const MediaThumbnail = React.memo(({
                     ) : (
                         <ImageIcon className="w-8 h-8 opacity-20" />
                     )}
-                    {status === 'Pending' && <span className="text-[10px] uppercase font-bold tracking-tighter opacity-40">Remote</span>}
                 </div>
             )}
 
-            {/* Overlays */}
+            {/* Overlays gradient */}
             <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-            {/* Progress Bar for Downloads */}
-            {status === 'Downloading' && progress && (
-                <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10 z-10">
-                    <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress.progress * 100}%` }}
-                        className="h-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]"
-                    />
-                </div>
-            )}
-
-            {/* Top Bar: Selection & Status */}
+            {/* Top Bar: Selection & Badges */}
             <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-10">
-                <div
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect?.(!isSelected);
-                    }}
-                    className={cn(
-                        "w-5 h-5 rounded-full border border-white/20 flex items-center justify-center transition-colors cursor-pointer",
-                        isSelected ? "bg-purple-600 border-purple-500" : "bg-black/40 hover:bg-black/60"
-                    )}
-                >
-                    {isSelected && <div className="w-2 h-2 rounded-full bg-white shadow-xs" />}
-                </div>
+                {onSelect && (
+                    <div
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect(!isSelected);
+                        }}
+                        className={cn(
+                            "w-5 h-5 rounded-full border border-white/20 flex items-center justify-center transition-colors cursor-pointer",
+                            isSelected ? "bg-purple-600 border-purple-500" : "bg-black/40 hover:bg-black/60"
+                        )}
+                    >
+                        {isSelected && <div className="w-2 h-2 rounded-full bg-white shadow-xs" />}
+                    </div>
+                )}
 
-                <div className="p-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 shadow-lg">
-                    {renderStatusIcon()}
-                </div>
+                {hasOverlay && (
+                    <div className="ml-auto px-1.5 py-0.5 rounded-md bg-purple-500/80 backdrop-blur-md border border-purple-300/30 text-white shadow-lg flex items-center gap-1" title="Has overlay/sticker">
+                        <Layers className="w-3 h-3" />
+                    </div>
+                )}
             </div>
 
             {/* Bottom info */}

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::fs;
-use crate::models::Event;
+use crate::models::{Event, Memory};
 
 /// Cleans Windows UNC extended-length path prefix (`\\?\`), while safely
 /// preserving standard paths on macOS, Linux, and Windows.
@@ -334,6 +334,99 @@ impl MediaLinker {
 
         log::info!("MediaLinker: ID/temporal matched {}, no-ids-in-metadata {}, id-not-found {}, already-linked {}",
             id_matched, no_ids, id_not_found, already_linked);
+    }
+
+    /// Link memory items to local media files and optional overlay files.
+    pub fn link_memories(&mut self, memories: &mut [Memory]) {
+        if memories.is_empty() {
+            return;
+        }
+
+        let mut linked_count = 0;
+        let mut overlay_count = 0;
+
+        for memory in memories.iter_mut() {
+            let target_ts = memory.timestamp.timestamp();
+            let is_video = memory.media_type.eq_ignore_ascii_case("Video");
+
+            let mut matched_media: Option<PathBuf> = None;
+            let mut matched_overlay: Option<PathBuf> = None;
+
+            // 1. Binary search timestamp_index for candidates within +/- 3 seconds
+            if !self.timestamp_index.is_empty() {
+                let start_idx = self.timestamp_index.partition_point(|e| e.timestamp < target_ts - 3);
+                let mut best_diff = i64::MAX;
+
+                for entry in &self.timestamp_index[start_idx..] {
+                    if entry.timestamp > target_ts + 3 {
+                        break;
+                    }
+                    let file_name = entry.file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    let is_overlay = file_name.contains("_overlay");
+
+                    if is_overlay {
+                        if matched_overlay.is_none() {
+                            matched_overlay = Some(entry.file_path.clone());
+                        }
+                    } else if entry.is_video == is_video {
+                        let diff = (entry.timestamp - target_ts).abs();
+                        if diff < best_diff {
+                            best_diff = diff;
+                            matched_media = Some(entry.file_path.clone());
+                        }
+                    }
+                }
+            }
+
+            // 2. If matched base media has an overlay with matching stem
+            if let Some(ref media_path) = matched_media {
+                if matched_overlay.is_none() {
+                    let file_name = media_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if file_name.contains("_media") {
+                        let overlay_name = file_name.replace("_media", "_overlay");
+                        let overlay_stem = Path::new(&overlay_name).file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                        if let Some(overlay_path) = self.id_map.get(overlay_stem).or_else(|| self.id_map.get(&overlay_name)) {
+                            matched_overlay = Some(overlay_path.clone());
+                        }
+                    }
+                }
+            }
+
+            // 3. Fallback: match by date prefix YYYY-MM-DD
+            if matched_media.is_none() {
+                let date_str = memory.timestamp.format("%Y-%m-%d").to_string();
+                for (key, path) in &self.id_map {
+                    if key.starts_with(&date_str) && !key.contains("_overlay") {
+                        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+                        let matches_type = if is_video {
+                            ext == "mp4" || ext == "mov"
+                        } else {
+                            ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "webp"
+                        };
+                        if matches_type {
+                            matched_media = Some(path.clone());
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if let Some(p) = matched_media {
+                memory.media_path = Some(p);
+                linked_count += 1;
+            }
+            if let Some(ov) = matched_overlay {
+                memory.overlay_path = Some(ov);
+                overlay_count += 1;
+            }
+        }
+
+        log::info!(
+            "MediaLinker: linked {} of {} memories to local files ({} with overlays)",
+            linked_count,
+            memories.len(),
+            overlay_count
+        );
     }
 
     #[cfg(test)]

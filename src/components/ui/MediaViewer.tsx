@@ -166,7 +166,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
     const getMediaSrc = (item: MediaViewerItem) => {
         const path = item.media_path || item.path || (item.media_references?.[0]);
         if (path) return safeConvertFileSrc(path);
-        return item.download_url || item.proxy_url;
+        return null;
     };
 
     const getMediaType = (item: MediaViewerItem) => {
@@ -203,14 +203,13 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         try {
             setSaving(true);
             const sourcePath = currentItem.media_path || currentItem.path || (currentItem.media_references?.[0]);
-            const downloadUrl = currentItem.download_url || currentItem.proxy_url;
 
-            if (!sourcePath && !downloadUrl) {
-                addToast?.('error', 'No media source file or URL available to save.');
+            if (!sourcePath) {
+                addToast?.('error', 'No local media file available to save.');
                 return;
             }
 
-            const ext = getFileExtension(sourcePath || downloadUrl || '', currentItem.media_type, currentItem.event_type);
+            const ext = getFileExtension(sourcePath, currentItem.media_type, currentItem.event_type);
             const dateStr = formatTimestampForFilename(currentItem.timestamp);
             const senderStr = (currentItem.sender_name || currentItem.sender || '')
                 .replace(/[^a-zA-Z0-9_-]/g, '_')
@@ -231,9 +230,8 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
 
             addToast?.('info', 'Saving file...');
             await invoke('export_media_file', {
-                sourcePath: sourcePath || null,
+                sourcePath,
                 destinationPath,
-                downloadUrl: downloadUrl || null,
                 timestamp: currentItem.timestamp || null,
             });
 

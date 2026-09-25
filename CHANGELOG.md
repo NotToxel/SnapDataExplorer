@@ -1,3 +1,16 @@
+## [1.2.0](https://github.com/KodyDennon/SnapDataExplorer/compare/v1.1.0...v1.2.0) (2026-09-25)
+
+### Features
+
+* **memories:** Added dedicated memory export and organization engine supporting EXIF metadata embedding (DateTimeOriginal, GPS), filesystem creation dates, companion sticker overlay compositing, and customizable directory grouping.
+* **ui:** Comprehensive overhaul of Memories filter sidebar and overview metrics with spacious full-width rows, consistent typography, and responsive non-truncating stat cards matching application design tokens.
+
+### Improvements & Bug Fixes
+
+* **ui:** Fixed layout overlap and text truncation in Memories filter panel on compact and non-fullscreen window viewports.
+* **ui:** Unified color themes, replacing ad-hoc borders with standard surface palette tokens across Memories, Dashboard, and Export modal.
+* **ui:** Improved Button component robustness to prevent unwanted text wrap and content collapse.
+
 ## [1.1.0](https://github.com/KodyDennon/SnapDataExplorer/compare/v1.0.2...v1.1.0) (2026-09-25)
 
 ### Features

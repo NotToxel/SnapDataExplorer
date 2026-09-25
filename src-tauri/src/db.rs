@@ -93,9 +93,7 @@ impl DatabaseManager {
                 latitude REAL,
                 longitude REAL,
                 media_path TEXT,
-                download_url TEXT,
-                proxy_url TEXT,
-                download_status TEXT NOT NULL DEFAULT 'Pending',
+                overlay_path TEXT,
                 export_id TEXT NOT NULL,
                 FOREIGN KEY(export_id) REFERENCES exports(id)
             );
@@ -167,22 +165,16 @@ impl DatabaseManager {
             }
         }
 
-        // 3. Add memory download columns
-        let has_download_status: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('memories') WHERE name = 'download_status'")?
+        // 3. Ensure overlay_path column exists in memories table
+        let has_overlay_path: bool = conn
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('memories') WHERE name = 'overlay_path'")?
             .query_row([], |row| row.get::<_, i32>(0))
             .unwrap_or(0)
             > 0;
 
-        if !has_download_status {
-            log::info!("Migration: adding download columns to memories table");
-            conn.execute_batch(
-                "
-                ALTER TABLE memories ADD COLUMN download_url TEXT;
-                ALTER TABLE memories ADD COLUMN proxy_url TEXT;
-                ALTER TABLE memories ADD COLUMN download_status TEXT NOT NULL DEFAULT 'Pending';
-            ",
-            )?;
+        if !has_overlay_path {
+            log::info!("Migration: adding overlay_path column to memories table");
+            let _ = conn.execute_batch("ALTER TABLE memories ADD COLUMN overlay_path TEXT;");
         }
 
         // 4. Sanitize legacy UNC prefixes in stored paths (Windows compatibility, safe on macOS/Linux)
@@ -357,16 +349,10 @@ impl DatabaseManager {
             let tx = conn.transaction()?;
             {
                 let mut stmt = tx.prepare_cached(
-                    "INSERT OR REPLACE INTO memories (id, timestamp, media_type, latitude, longitude, media_path, download_url, proxy_url, download_status, export_id)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
+                    "INSERT OR REPLACE INTO memories (id, timestamp, media_type, latitude, longitude, media_path, overlay_path, export_id)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
                 )?;
                 for memory in chunk {
-                    let status_str = match memory.download_status {
-                        crate::models::DownloadStatus::Pending => "Pending",
-                        crate::models::DownloadStatus::Downloading => "Downloading",
-                        crate::models::DownloadStatus::Downloaded => "Downloaded",
-                        crate::models::DownloadStatus::Failed => "Failed",
-                    };
                     stmt.execute(params![
                         memory.id,
                         memory.timestamp.to_rfc3339(),
@@ -374,9 +360,7 @@ impl DatabaseManager {
                         memory.latitude,
                         memory.longitude,
                         memory.media_path.as_ref().map(|p| p.to_string_lossy().to_string()),
-                        memory.download_url,
-                        memory.proxy_url,
-                        status_str,
+                        memory.overlay_path.as_ref().map(|p| p.to_string_lossy().to_string()),
                         memory.export_id
                     ])?;
                 }
@@ -904,10 +888,10 @@ impl DatabaseManager {
 
     pub fn get_memories(&self, export_id: Option<&str>) -> AppResult<Vec<Memory>> {
         let query = if export_id.is_some() {
-            "SELECT id, timestamp, media_type, latitude, longitude, media_path, download_url, proxy_url, download_status, export_id
+            "SELECT id, timestamp, media_type, latitude, longitude, media_path, overlay_path, export_id
              FROM memories WHERE export_id = ?1 ORDER BY timestamp DESC"
         } else {
-            "SELECT id, timestamp, media_type, latitude, longitude, media_path, download_url, proxy_url, download_status, export_id
+            "SELECT id, timestamp, media_type, latitude, longitude, media_path, overlay_path, export_id
              FROM memories ORDER BY timestamp DESC"
         };
 
@@ -936,13 +920,7 @@ impl DatabaseManager {
                 chrono::DateTime::<chrono::Utc>::MIN_UTC
             });
         let media_path_str: Option<String> = row.get(5)?;
-        let status_str: String = row.get(8)?;
-        let download_status = match status_str.as_str() {
-            "Downloading" => crate::models::DownloadStatus::Downloading,
-            "Downloaded" => crate::models::DownloadStatus::Downloaded,
-            "Failed" => crate::models::DownloadStatus::Failed,
-            _ => crate::models::DownloadStatus::Pending,
-        };
+        let overlay_path_str: Option<String> = row.get(6)?;
 
         Ok(Memory {
             id: row.get(0)?,
@@ -951,10 +929,8 @@ impl DatabaseManager {
             latitude: row.get(3)?,
             longitude: row.get(4)?,
             media_path: media_path_str.map(PathBuf::from),
-            export_id: row.get(9)?,
-            download_url: row.get(6)?,
-            proxy_url: row.get(7)?,
-            download_status,
+            overlay_path: overlay_path_str.map(PathBuf::from),
+            export_id: row.get(7)?,
         })
     }
 

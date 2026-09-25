@@ -78,8 +78,6 @@ export const MOCK_MEMORIES: Memory[] = Array.from({ length: 40 }).map((_, i) => 
   latitude: 34.0522,
   longitude: -118.2437,
   media_path: `https://picsum.photos/seed/mem${i}/1080/1920`,
-  export_id: "mock-export-123",
-  download_url: null,
-  proxy_url: null,
-  download_status: "Downloaded"
+  overlay_path: null,
+  export_id: "mock-export-123"
 }));

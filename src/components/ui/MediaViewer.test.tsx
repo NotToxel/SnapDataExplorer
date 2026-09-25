@@ -13,9 +13,7 @@ describe('MediaViewer', () => {
       latitude: null,
       longitude: null,
       export_id: 'e1',
-      download_url: null,
-      proxy_url: null,
-      download_status: 'Pending' as const,
+      overlay_path: null,
     },
   ];
 

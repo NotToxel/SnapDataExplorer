@@ -30,7 +30,7 @@ export function ChillView({ onExit }: ChillViewProps) {
             // Filter for only media that exists visually (images/videos)
             const visualMemories = allMemories.filter(m =>
                 (m.media_type === "Image" || m.media_type === "Video") &&
-                (m.media_path || m.download_url)
+                m.media_path
             );
 
             // Shuffle for "Chill" vibes
@@ -94,10 +94,9 @@ export function ChillView({ onExit }: ChillViewProps) {
     }
 
     const currentMemory = memories[currentIndex];
-    // Prefer local path, fallback to remote
     const mediaSrc = currentMemory.media_path
         ? safeConvertFileSrc(currentMemory.media_path)
-        : currentMemory.download_url ?? undefined;
+        : undefined;
 
     return (
         <div

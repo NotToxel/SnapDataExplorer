@@ -34,8 +34,6 @@ export interface Event {
   metadata: string | null;
 }
 
-export type DownloadStatus = "Pending" | "Downloading" | "Downloaded" | "Failed";
-
 export interface Memory {
   id: string;
   timestamp: string;
@@ -43,18 +41,33 @@ export interface Memory {
   latitude: number | null;
   longitude: number | null;
   media_path: string | null;
+  overlay_path: string | null;
   export_id: string;
-  download_url: string | null;
-  proxy_url: string | null;
-  download_status: DownloadStatus;
 }
 
-export interface DownloadProgress {
-  memory_id: string;
-  progress: number;
-  status: string;
-  bytes_downloaded: number;
-  total_bytes: number | null;
+export interface ExportMemoriesOptions {
+  export_id: string;
+  memory_ids?: string[] | null;
+  target_dir: string;
+  naming_format?: "Standard" | "Compact" | "Original" | string;
+  folder_structure?: "Flat" | "ByYear" | "ByYearMonth";
+  composite_overlay?: boolean;
+  embed_exif?: boolean;
+  set_file_times?: boolean;
+}
+
+export interface ExportMemoriesProgress {
+  current: number;
+  total: number;
+  current_file: string;
+  percentage: number;
+}
+
+export interface ExportMemoriesResult {
+  exported_count: number;
+  failed_count: number;
+  target_dir: string;
+  errors: string[];
 }
 
 export interface DiskSpaceInfo {

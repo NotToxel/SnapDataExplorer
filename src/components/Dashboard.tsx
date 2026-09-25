@@ -1,30 +1,28 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ExportSet, ExportStats, IngestionProgress, ValidationReport } from "../types";
-import { Card, Badge, Button } from "./ui";
+import { Card, Button } from "./ui";
 import { cn } from "../lib/utils";
 import { useAppVersion } from "../lib/version";
 import { ViewMode } from "./ui/ModeToggle";
 import { DashboardSkeleton } from "./ui/Skeleton";
 import {
-  BarChart3,
+  LayoutDashboard,
+  MessageSquare,
   Users,
   Image as ImageIcon,
   Calendar,
   Search,
   Zap,
   Cloud,
-  History,
   ShieldCheck,
   AlertTriangle,
-  MessageSquare,
-  Camera,
-  Video,
+  Play,
   Mic,
   Smile,
   HardDrive,
-  Film,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -144,21 +142,21 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
                 transition={{ delay: 0.35 }}
                 className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center"
               >
-                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                  <p className="text-xl font-bold text-white">{stats.breakdown.photo_snaps.toLocaleString()}</p>
-                  <p className="text-xs text-surface-400">Photos & Snaps</p>
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <p className="text-xl font-black text-white tracking-tight">{stats.breakdown.photo_snaps.toLocaleString()}</p>
+                  <p className="text-xs text-surface-400 font-medium mt-0.5">Photos & Snaps</p>
                 </div>
-                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                  <p className="text-xl font-bold text-white">{stats.breakdown.video_snaps.toLocaleString()}</p>
-                  <p className="text-xs text-surface-400">Video Snaps</p>
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <p className="text-xl font-black text-white tracking-tight">{stats.breakdown.video_snaps.toLocaleString()}</p>
+                  <p className="text-xs text-surface-400 font-medium mt-0.5">Video Snaps</p>
                 </div>
-                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                  <p className="text-xl font-bold text-white">{stats.breakdown.audio_notes.toLocaleString()}</p>
-                  <p className="text-xs text-surface-400">Voice Notes</p>
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <p className="text-xl font-black text-white tracking-tight">{stats.breakdown.audio_notes.toLocaleString()}</p>
+                  <p className="text-xs text-surface-400 font-medium mt-0.5">Voice Notes</p>
                 </div>
-                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                  <p className="text-xl font-bold text-white">{stats.breakdown.total_saved_media.toLocaleString()}</p>
-                  <p className="text-xs text-surface-400">Media Preserved</p>
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <p className="text-xl font-black text-white tracking-tight">{stats.breakdown.total_saved_media.toLocaleString()}</p>
+                  <p className="text-xs text-surface-400 font-medium mt-0.5">Media Preserved</p>
                 </div>
               </motion.div>
             )}
@@ -226,18 +224,26 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
 
   // Pro Mode: Data-heavy, forensic dashboard
   return (
-    <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto custom-scrollbar bg-surface-50 dark:bg-surface-950">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex-1 p-6 sm:p-8 lg:p-10 overflow-y-auto custom-scrollbar bg-surface-50 dark:bg-surface-950">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1.5">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-surface-900 dark:text-white">Archive Intelligence</h1>
-              <Badge variant="info" size="sm">FORENSIC</Badge>
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-brand-500/10 dark:bg-brand-500/15 flex items-center justify-center text-brand-600 dark:text-brand-400 shadow-xs shrink-0 mt-0.5 sm:mt-0">
+              <LayoutDashboard className="w-6 h-6" />
             </div>
-            <p className="text-surface-500 dark:text-surface-400 text-sm sm:text-base">Deep analysis and data reconstruction of your Snapchat export.</p>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-surface-900 dark:text-white">Archive Intelligence</h1>
+                <span className="px-2.5 py-0.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Forensic
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400 font-medium mt-1">Deep analysis and data reconstruction of your Snapchat export.</p>
+            </div>
           </div>
 
-          <Button variant="outline" className="gap-2 self-start sm:self-auto" onClick={() => onNavigate?.("search")}>
+          <Button variant="outline" size="sm" className="gap-2 font-semibold self-start sm:self-auto" onClick={() => onNavigate?.("search")}>
             <Search className="w-4 h-4" />
             Global Search
           </Button>
@@ -248,91 +254,75 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
         {!currentExport && !progress && <EmptyState />}
 
         {stats && !progress && (
-          <div className="space-y-6">
+          <div className="space-y-6 sm:space-y-8">
             {/* Primary Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
               <StatCard
                 label="Total Messages"
                 value={stats.total_messages.toLocaleString()}
-                icon={<BarChart3 className="w-4 h-4 text-brand-500" />}
+                subtext="Sent and received interactions"
+                icon={<MessageSquare className="w-4 h-4" />}
+                iconBgClass="bg-brand-500/10 text-brand-500 dark:text-brand-400"
               />
               <StatCard
                 label="Conversations"
                 value={stats.total_conversations.toString()}
-                icon={<Users className="w-4 h-4 text-accent-purple" />}
+                subtext="Direct and group chats"
+                icon={<Users className="w-4 h-4" />}
+                iconBgClass="bg-accent-purple/10 text-accent-purple"
               />
               <StatCard
                 label="Memories"
                 value={stats.total_memories.toString()}
-                icon={<ImageIcon className="w-4 h-4 text-accent-pink" />}
+                subtext="Saved cloud photos & videos"
+                icon={<ImageIcon className="w-4 h-4" />}
+                iconBgClass="bg-accent-pink/10 text-accent-pink"
               />
               <StatCard
-                label="Date Range"
-                icon={<Calendar className="w-4 h-4 text-accent-cyan" />}
+                label="Active Timespan"
+                value={formatDuration(stats.start_date, stats.end_date) || "Active"}
+                subtext="Total archive timeline"
+                icon={<Calendar className="w-4 h-4" />}
+                iconBgClass="bg-accent-cyan/10 text-accent-cyan"
               >
-                <div className="mt-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2 min-w-0">
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                      <span className="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Start</span>
-                    </div>
-                    <span
-                      className="text-xs sm:text-sm font-bold text-surface-900 dark:text-white tabular-nums truncate"
-                      title={stats.start_date ? new Date(stats.start_date).toLocaleString() : undefined}
-                    >
+                {(stats.start_date || stats.end_date) && (
+                  <div className="mt-3 pt-2.5 border-t border-surface-100 dark:border-surface-700/60 flex items-center justify-between text-xs font-medium">
+                    <span className="text-surface-500 dark:text-surface-400 truncate text-[11px]" title={stats.start_date ? new Date(stats.start_date).toLocaleString() : undefined}>
                       {formatDate(stats.start_date)}
                     </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 min-w-0">
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="w-2 h-2 rounded-full bg-accent-cyan shrink-0" />
-                      <span className="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">End</span>
-                    </div>
-                    <span
-                      className="text-xs sm:text-sm font-bold text-surface-900 dark:text-white tabular-nums truncate"
-                      title={stats.end_date ? new Date(stats.end_date).toLocaleString() : undefined}
-                    >
+                    <span className="text-surface-400 dark:text-surface-600 px-1 text-[11px]">→</span>
+                    <span className="text-surface-500 dark:text-surface-400 truncate text-[11px]" title={stats.end_date ? new Date(stats.end_date).toLocaleString() : undefined}>
                       {formatDate(stats.end_date)}
                     </span>
                   </div>
-
-                  {stats.start_date && stats.end_date && (
-                    <div className="pt-2 border-t border-surface-100 dark:border-surface-800 flex items-center justify-between text-xs">
-                      <span className="text-surface-400 font-medium">Timespan</span>
-                      <span className="font-semibold text-accent-cyan">
-                        {formatDuration(stats.start_date, stats.end_date)}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                )}
               </StatCard>
             </div>
 
             {/* Detailed Content & Media Statistics */}
             {breakdown && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
                 {/* Message & Snap Composition */}
-                <Card variant="surface" padding="md" className="border-t-2 border-t-brand-500 flex flex-col justify-between">
+                <Card variant="surface" padding="lg" className="border-t-4 border-t-brand-500 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-500">
-                          <MessageSquare className="w-4 h-4" />
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-500 dark:text-brand-400 shrink-0">
+                          <MessageSquare className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-surface-900 dark:text-white">Message & Snap Composition</h3>
-                          <p className="text-xs text-surface-400">Distribution across interaction formats</p>
+                          <h3 className="text-base sm:text-lg font-bold text-surface-900 dark:text-white tracking-tight">Message & Snap Composition</h3>
+                          <p className="text-xs text-surface-500 dark:text-surface-400 font-medium">Distribution across interaction formats</p>
                         </div>
                       </div>
-                      <Badge variant="default" size="sm">
+                      <span className="px-2.5 py-1 rounded-full bg-surface-100 dark:bg-surface-700/60 border border-surface-200 dark:border-surface-700 text-xs font-bold text-surface-700 dark:text-surface-300 font-mono">
                         {stats.total_messages.toLocaleString()} Total
-                      </Badge>
+                      </span>
                     </div>
 
                     {/* Segmented distribution bar */}
                     <div className="mb-4">
-                      <div className="h-2 w-full rounded-full overflow-hidden flex bg-surface-100 dark:bg-surface-800">
+                      <div className="h-2.5 w-full rounded-full overflow-hidden flex bg-surface-100 dark:bg-surface-700/50">
                         {textPct > 0 && (
                           <div
                             style={{ width: `${textPct}%` }}
@@ -350,7 +340,7 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
                         {videoPct > 0 && (
                           <div
                             style={{ width: `${videoPct}%` }}
-                            className="bg-purple-500 h-full transition-all"
+                            className="bg-accent-purple h-full transition-all"
                             title={`Videos: ${videoPct}% (${breakdown.video_snaps.toLocaleString()})`}
                           />
                         )}
@@ -381,18 +371,18 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
                         colorClass="bg-brand-500/10 text-brand-500"
                       />
                       <BreakdownTile
-                        icon={<Camera className="w-3.5 h-3.5" />}
+                        icon={<ImageIcon className="w-3.5 h-3.5" />}
                         label="Photos & Snaps"
                         value={breakdown.photo_snaps.toLocaleString()}
                         subtext={`${photoPct}% of messages`}
                         colorClass="bg-accent-pink/10 text-accent-pink"
                       />
                       <BreakdownTile
-                        icon={<Video className="w-3.5 h-3.5" />}
+                        icon={<Play className="w-3.5 h-3.5 fill-current" />}
                         label="Video Snaps"
                         value={breakdown.video_snaps.toLocaleString()}
                         subtext={`${videoPct}% of messages`}
-                        colorClass="bg-purple-500/10 text-purple-500"
+                        colorClass="bg-accent-purple/10 text-accent-purple"
                       />
                       <BreakdownTile
                         icon={<Mic className="w-3.5 h-3.5" />}
@@ -414,22 +404,27 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
                   </div>
                 </Card>
 
-                {/* Media Storage & Preservation */}
-                <Card variant="surface" padding="md" className="border-t-2 border-t-accent-purple flex flex-col justify-between">
+                {/* Media Vault & Preservation */}
+                <Card variant="surface" padding="lg" className="border-t-4 border-t-accent-purple flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-accent-purple/10 flex items-center justify-center text-accent-purple">
-                          <HardDrive className="w-4 h-4" />
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-accent-purple/10 flex items-center justify-center text-accent-purple shrink-0">
+                          <HardDrive className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-surface-900 dark:text-white">Media Vault & Preservation</h3>
-                          <p className="text-xs text-surface-400">Status of local & recovered media assets</p>
+                          <h3 className="text-base sm:text-lg font-bold text-surface-900 dark:text-white tracking-tight">Media Vault & Preservation</h3>
+                          <p className="text-xs text-surface-500 dark:text-surface-400 font-medium">Status of local & recovered media assets</p>
                         </div>
                       </div>
-                      <Badge variant={stats.missing_media_count === 0 ? "success" : "info"} size="sm">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1",
+                        stats.missing_media_count === 0
+                          ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                          : "bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400"
+                      )}>
                         {preservationRate}% Preserved
-                      </Badge>
+                      </span>
                     </div>
 
                     {/* Preservation rate bar */}
@@ -440,12 +435,12 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
                           {breakdown.total_saved_media.toLocaleString()} / {totalMediaAttempted.toLocaleString()}
                         </span>
                       </div>
-                      <div className="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-surface-100 dark:bg-surface-700/50 rounded-full h-2.5 overflow-hidden">
                         <div
                           style={{ width: `${Math.min(100, Number(preservationRate))}%` }}
                           className={cn(
                             "h-full rounded-full transition-all duration-700",
-                            Number(preservationRate) >= 90 ? "bg-green-500" : Number(preservationRate) >= 70 ? "bg-amber-500" : "bg-red-500"
+                            Number(preservationRate) >= 90 ? "bg-emerald-500" : Number(preservationRate) >= 70 ? "bg-amber-500" : "bg-red-500"
                           )}
                         />
                       </div>
@@ -458,14 +453,14 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
                         label="Saved Media Files"
                         value={breakdown.total_saved_media.toLocaleString()}
                         subtext="Recovered on disk"
-                        colorClass="bg-green-500/10 text-green-500"
+                        colorClass="bg-emerald-500/10 text-emerald-500"
                       />
                       <BreakdownTile
-                        icon={<Film className="w-3.5 h-3.5" />}
+                        icon={<Play className="w-3.5 h-3.5 fill-current" />}
                         label="Saved Videos"
                         value={breakdown.total_saved_videos.toLocaleString()}
                         subtext="Snaps & memories"
-                        colorClass="bg-purple-500/10 text-purple-500"
+                        colorClass="bg-accent-purple/10 text-accent-purple"
                       />
                       <BreakdownTile
                         icon={<ImageIcon className="w-3.5 h-3.5" />}
@@ -479,7 +474,7 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
                         label="Missing / Unlinked"
                         value={stats.missing_media_count.toLocaleString()}
                         subtext={stats.missing_media_count === 0 ? "All files resolved" : "Pending export links"}
-                        colorClass={stats.missing_media_count === 0 ? "bg-green-500/10 text-green-500" : "bg-amber-500/10 text-amber-500"}
+                        colorClass={stats.missing_media_count === 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"}
                       />
                     </div>
                   </div>
@@ -489,107 +484,116 @@ export function Dashboard({ currentExport, progress, viewMode, onNavigate }: Das
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-5">
-            <Card variant="surface" className="flex items-center gap-4 p-5 hover:border-brand-500/50 cursor-pointer group transition-all" onClick={() => onNavigate?.("chats")}>
-              <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-500 group-hover:bg-brand-500 group-hover:text-white transition-all">
-                <History className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="font-bold text-surface-900 dark:text-white">Recent Chats</h4>
-                <p className="text-xs text-surface-500">Jump back into conversations</p>
-              </div>
-            </Card>
-            <Card variant="surface" className="flex items-center gap-4 p-5 hover:border-accent-purple/50 cursor-pointer group transition-all" onClick={() => onNavigate?.("gallery")}>
-              <div className="w-12 h-12 rounded-xl bg-accent-purple/10 flex items-center justify-center text-accent-purple group-hover:bg-accent-purple group-hover:text-white transition-all">
-                <ImageIcon className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="font-bold text-surface-900 dark:text-white">Media Gallery</h4>
-                <p className="text-xs text-surface-500">Browse all visual assets</p>
-              </div>
-            </Card>
-            <Card variant="surface" className="flex items-center gap-4 p-5 hover:border-accent-cyan/50 cursor-pointer group transition-all" onClick={() => onNavigate?.("memories")}>
-              <div className="w-12 h-12 rounded-xl bg-accent-cyan/10 flex items-center justify-center text-accent-cyan group-hover:bg-accent-cyan group-hover:text-white transition-all">
-                <Cloud className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="font-bold text-surface-900 dark:text-white">Cloud Memories</h4>
-                <p className="text-xs text-surface-500">Download and explore saved memories</p>
-              </div>
-            </Card>
-          </div>
+              <Card variant="surface" className="flex items-center gap-4 p-5 hover:border-brand-500/50 cursor-pointer group transition-all" onClick={() => onNavigate?.("chats")}>
+                <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-500 group-hover:bg-brand-500 group-hover:text-white transition-all shrink-0">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-surface-900 dark:text-white">Conversations</h4>
+                  <p className="text-xs text-surface-500 dark:text-surface-400 font-medium">Explore chats & messages</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-surface-400 group-hover:text-surface-700 dark:group-hover:text-surface-200 group-hover:translate-x-1 transition-all shrink-0" />
+              </Card>
 
-          {/* Detailed Analysis Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Top Contacts */}
-            <Card variant="surface" padding="lg" className="border-t-4 border-t-brand-500">
-              <h3 className="text-lg font-bold mb-5 flex items-center gap-2 text-surface-900 dark:text-white">
-                <Users className="w-5 h-5 text-brand-500" />
-                Message Frequency by Contact
-              </h3>
-              <div className="space-y-4">
-                {filteredTopContacts.slice(0, 8).map(([name, count], i) => (
-                  <div key={name} className="flex items-center gap-4">
-                    <span className="w-6 text-surface-400 font-mono text-sm">{String(i + 1).padStart(2, '0')}</span>
-                    <div className="flex-1">
-                      <div className="flex justify-between mb-1.5">
-                        <span className="font-semibold text-surface-800 dark:text-surface-200">{name}</span>
-                        <span className="text-surface-400 text-sm font-mono">{count.toLocaleString()}</span>
-                      </div>
-                      <div className="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-1.5 overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(count / (filteredTopContacts[0]?.[1] || 1)) * 100}%` }}
-                          transition={{ duration: 1, ease: "easeOut", delay: i * 0.1 }}
-                          className="bg-linear-to-r from-brand-500 to-accent-purple h-full rounded-full"
-                        />
-                      </div>
-                    </div>
+              <Card variant="surface" className="flex items-center gap-4 p-5 hover:border-accent-purple/50 cursor-pointer group transition-all" onClick={() => onNavigate?.("gallery")}>
+                <div className="w-12 h-12 rounded-xl bg-accent-purple/10 flex items-center justify-center text-accent-purple group-hover:bg-accent-purple group-hover:text-white transition-all shrink-0">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-surface-900 dark:text-white">Media Gallery</h4>
+                  <p className="text-xs text-surface-500 dark:text-surface-400 font-medium">Browse all visual assets</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-surface-400 group-hover:text-surface-700 dark:group-hover:text-surface-200 group-hover:translate-x-1 transition-all shrink-0" />
+              </Card>
+
+              <Card variant="surface" className="flex items-center gap-4 p-5 hover:border-accent-cyan/50 cursor-pointer group transition-all" onClick={() => onNavigate?.("memories")}>
+                <div className="w-12 h-12 rounded-xl bg-accent-cyan/10 flex items-center justify-center text-accent-cyan group-hover:bg-accent-cyan group-hover:text-white transition-all shrink-0">
+                  <Cloud className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-surface-900 dark:text-white">Cloud Memories</h4>
+                  <p className="text-xs text-surface-500 dark:text-surface-400 font-medium">Download and explore saved memories</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-surface-400 group-hover:text-surface-700 dark:group-hover:text-surface-200 group-hover:translate-x-1 transition-all shrink-0" />
+              </Card>
+            </div>
+
+            {/* Detailed Analysis Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+              {/* Top Contacts */}
+              <Card variant="surface" padding="lg" className="border-t-4 border-t-brand-500">
+                <h3 className="text-base sm:text-lg font-bold mb-5 flex items-center gap-3 text-surface-900 dark:text-white tracking-tight">
+                  <div className="w-9 h-9 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-500 dark:text-brand-400 shrink-0">
+                    <Users className="w-5 h-5" />
                   </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Data Integrity */}
-            {validation && (
-              <Card variant="surface" padding="lg" className="border-t-4 border-t-accent-cyan">
-                <h3 className="text-lg font-bold mb-5 flex items-center gap-2 text-surface-900 dark:text-white">
-                  <ShieldCheck className="w-5 h-5 text-accent-cyan" />
-                  Data Integrity Report
+                  Message Frequency by Contact
                 </h3>
                 <div className="space-y-4">
-                  <IntegrityRow label="HTML Files Parsed" value={validation.parsed_html_files} total={validation.total_html_files} />
-                  <IntegrityRow label="Media Files Resolved" value={validation.media_found} total={validation.total_media_referenced} />
-
-                  {validation.warnings.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                      <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider flex items-center gap-2">
-                        <AlertTriangle className="w-3 h-3 text-amber-500" />
-                        Warnings
-                      </p>
-                      <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-2">
-                        {validation.warnings.map((w, i) => (
-                          <div key={i} className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl border border-amber-200 dark:border-amber-500/20">
-                            {w}
-                          </div>
-                        ))}
+                  {filteredTopContacts.slice(0, 8).map(([name, count], i) => (
+                    <div key={name} className="flex items-center gap-4">
+                      <span className="w-6 text-surface-400 font-mono text-sm">{String(i + 1).padStart(2, '0')}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between mb-1.5">
+                          <span className="font-semibold text-surface-800 dark:text-surface-200 truncate">{name}</span>
+                          <span className="text-surface-500 dark:text-surface-400 text-sm font-mono shrink-0 ml-2">{count.toLocaleString()}</span>
+                        </div>
+                        <div className="w-full bg-surface-100 dark:bg-surface-700/50 rounded-full h-1.5 overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(count / (filteredTopContacts[0]?.[1] || 1)) * 100}%` }}
+                            transition={{ duration: 1, ease: "easeOut", delay: i * 0.1 }}
+                            className="bg-linear-to-r from-brand-500 to-accent-purple h-full rounded-full"
+                          />
+                        </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-500/10 p-3 rounded-xl border border-green-200 dark:border-green-500/20 mt-4">
-                      <ShieldCheck className="w-4 h-4" />
-                      <span className="font-semibold">All integrity checks passed</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </Card>
-            )}
+
+              {/* Data Integrity */}
+              {validation && (
+                <Card variant="surface" padding="lg" className="border-t-4 border-t-accent-cyan">
+                  <h3 className="text-base sm:text-lg font-bold mb-5 flex items-center gap-3 text-surface-900 dark:text-white tracking-tight">
+                    <div className="w-9 h-9 rounded-xl bg-accent-cyan/10 flex items-center justify-center text-accent-cyan shrink-0">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    Data Integrity Report
+                  </h3>
+                  <div className="space-y-4">
+                    <IntegrityRow label="HTML Files Parsed" value={validation.parsed_html_files} total={validation.total_html_files} />
+                    <IntegrityRow label="Media Files Resolved" value={validation.media_found} total={validation.total_media_referenced} />
+
+                    {validation.warnings.length > 0 ? (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider flex items-center gap-2">
+                          <AlertTriangle className="w-3 h-3 text-amber-500" />
+                          Warnings
+                        </p>
+                        <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-2">
+                          {validation.warnings.map((w, i) => (
+                            <div key={i} className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl border border-amber-200 dark:border-amber-500/20">
+                              {w}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 p-3 rounded-xl border border-emerald-200 dark:border-emerald-500/20 mt-4">
+                        <ShieldCheck className="w-4 h-4 shrink-0" />
+                        <span className="font-semibold">All integrity checks passed</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-      <AIAttribution />
+        )}
+        <AIAttribution />
+      </div>
     </div>
-  </div>
-);
+  );
 }
 
 // --- Supporting Components ---
@@ -689,14 +693,14 @@ function BreakdownTile({
   colorClass?: string;
 }) {
   return (
-    <div className="p-3 rounded-xl bg-surface-100/70 dark:bg-surface-900/60 border border-surface-200/50 dark:border-surface-800/80 flex items-center justify-between gap-3 min-w-0 transition-colors hover:border-surface-300 dark:hover:border-surface-700">
+    <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/80 border border-surface-200/80 dark:border-surface-700/60 flex items-center justify-between gap-3 min-w-0 transition-colors hover:border-surface-300 dark:hover:border-surface-600">
       <div className="flex items-center gap-2.5 min-w-0">
         <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm", colorClass)}>
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-surface-700 dark:text-surface-300 truncate">{label}</p>
-          {subtext && <p className="text-[10px] text-surface-400 font-mono">{subtext}</p>}
+          <p className="text-xs font-semibold text-surface-800 dark:text-surface-200 truncate">{label}</p>
+          {subtext && <p className="text-[11px] text-surface-500 dark:text-surface-400 font-medium truncate">{subtext}</p>}
         </div>
       </div>
       <span className="text-sm font-bold font-mono text-surface-900 dark:text-white shrink-0 tabular-nums">
@@ -736,20 +740,34 @@ function formatDuration(startDateStr: string | null, endDateStr: string | null):
   return `${cleanYears} ${cleanYears === "1" ? "year" : "years"}`;
 }
 
-function StatCard({ label, value, icon, children }: {
+function StatCard({
+  label,
+  value,
+  subtext,
+  icon,
+  iconBgClass = "bg-brand-500/10 text-brand-500",
+  children,
+}: {
   label: string;
   value?: string;
+  subtext?: string;
   icon?: React.ReactNode;
+  iconBgClass?: string;
   children?: React.ReactNode;
 }) {
   return (
-    <Card variant="surface" padding="md" className="hover:shadow-md transition-shadow h-full flex flex-col justify-between">
+    <Card variant="surface" padding="md" className="hover:shadow-md transition-all duration-200 h-full flex flex-col justify-between group">
       <div>
-        <div className="flex items-start justify-between">
-          <span className="text-surface-400 font-semibold text-xs uppercase tracking-wider">{label}</span>
-          {icon}
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider">{label}</span>
+          {icon && (
+            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105", iconBgClass)}>
+              {icon}
+            </div>
+          )}
         </div>
-        {value && <p className="text-3xl lg:text-4xl font-black text-surface-900 dark:text-white mt-2 tracking-tight">{value}</p>}
+        {value && <p className="text-3xl lg:text-4xl font-black text-surface-900 dark:text-white mt-3 tracking-tight tabular-nums">{value}</p>}
+        {subtext && <p className="text-xs text-surface-500 dark:text-surface-400 font-medium mt-1">{subtext}</p>}
       </div>
       {children}
     </Card>
@@ -778,16 +796,16 @@ function IntegrityRow({ label, value, total }: { label: string; value: number; t
     <div>
       <div className="flex justify-between mb-1.5">
         <span className="text-sm font-medium text-surface-700 dark:text-surface-300">{label}</span>
-        <span className="text-sm text-surface-400 font-mono">{value}/{total}</span>
+        <span className="text-sm text-surface-500 dark:text-surface-400 font-mono font-semibold">{value}/{total}</span>
       </div>
-      <div className="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-2 overflow-hidden">
+      <div className="w-full bg-surface-100 dark:bg-surface-700/50 rounded-full h-2 overflow-hidden">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 1.5, ease: "easeOut" }}
           className={cn(
             "h-full rounded-full",
-            pct === 100 ? "bg-green-500" : pct > 80 ? "bg-amber-500" : "bg-red-500"
+            pct === 100 ? "bg-emerald-500" : pct > 80 ? "bg-amber-500" : "bg-red-500"
           )}
         />
       </div>

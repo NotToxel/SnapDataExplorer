@@ -4,14 +4,13 @@
 //! Snapchat "My Data" exports. All data is stored locally in SQLite.
 
 pub mod db;
-pub mod downloader;
 pub mod error;
 pub mod ingestion;
+pub mod memory_exporter;
 pub mod models;
 pub mod storage;
 
 use crate::db::DatabaseManager;
-use crate::downloader::MemoryDownloader;
 use crate::error::{AppError, AppResult};
 use crate::ingestion::detector::ExportDetector;
 use crate::ingestion::extractor::ZipExtractor;
@@ -476,10 +475,14 @@ async fn reconstruct_from_path(
 
     let chat_media_dir = source_path.join("chat_media");
     let media_dir = source_path.join("media");
+    let memories_dir = source_path.join("memories");
 
     let mut linker = MediaLinker::new(&chat_media_dir);
     if media_dir.is_dir() {
         linker.add_media_directory(&media_dir);
+    }
+    if memories_dir.is_dir() {
+        linker.add_media_directory(&memories_dir);
     }
 
     // Load timestamps from manifest (created during extraction) or directly from original zips
@@ -558,13 +561,16 @@ async fn reconstruct_from_path(
                 log::info!("Parsed {} memories", memories.len());
                 let mem_count = memories.len();
                 all_memories = memories;
+                if !all_memories.is_empty() {
+                    linker.link_memories(&mut all_memories);
+                }
                 let _ = app_handle.emit(
                     "ingestion-progress",
                     IngestionProgress {
                         export_id: export_id.clone(),
                         current_step: "Processing Memories".to_string(),
                         progress: 0.70,
-                        message: format!("Parsed {} memories from archive", mem_count),
+                        message: format!("Parsed and linked {} memories from archive", mem_count),
                     },
                 );
             }
@@ -1055,23 +1061,12 @@ async fn check_disk_space(
 }
 
 #[tauri::command]
-async fn download_all_memories(state: State<'_, DbState>, app_handle: tauri::AppHandle) -> AppResult<()> {
-    let db = db_from_state(&state, &app_handle)?.ok_or_else(|| AppError::Generic("Database not initialized".into()))?;
-    let downloader = MemoryDownloader::new(app_handle, db);
-    downloader.download_all_pending().await
-}
-
-#[tauri::command]
-async fn download_memory(memory: Memory, state: State<'_, DbState>, app_handle: tauri::AppHandle) -> AppResult<()> {
-    let db = db_from_state(&state, &app_handle)?.ok_or_else(|| AppError::Generic("Database not initialized".into()))?;
-    let storage_path = db.get_setting("storage_path")?;
-    let storage_root = match storage_path {
-        Some(p) => PathBuf::from(p),
-        None => return Err(AppError::Generic("No storage path set".into())),
-    };
-
-    let downloader = MemoryDownloader::new(app_handle, db);
-    downloader.download_memory(memory, storage_root).await
+async fn export_memories(
+    options: crate::models::ExportMemoriesOptions,
+    state: State<'_, DbState>,
+    app_handle: tauri::AppHandle,
+) -> AppResult<crate::models::ExportMemoriesResult> {
+    crate::memory_exporter::MemoryExporter::export(options, &app_handle, &state).await
 }
 
 #[tauri::command]
@@ -1106,46 +1101,10 @@ async fn show_in_folder(path: String) -> AppResult<()> {
     Ok(())
 }
 
-async fn download_file_to_path(url: &str, dest: &std::path::Path) -> AppResult<()> {
-    let client = reqwest::Client::new();
-    let final_url = if url.contains("app.snapchat.com/dmd") || url.contains("/dmd/memories") {
-        match client.post(url).send().await {
-            Ok(res) if res.status().is_success() => {
-                match res.text().await {
-                    Ok(body) if body.trim().starts_with("http") => body.trim().to_string(),
-                    _ => url.to_string(),
-                }
-            }
-            _ => url.to_string(),
-        }
-    } else {
-        url.to_string()
-    };
-
-    let response = client.get(&final_url).send().await.map_err(|e| {
-        AppError::Generic(format!("Failed to fetch media from URL: {}", e))
-    })?;
-
-    if !response.status().is_success() {
-        return Err(AppError::Generic(format!("Download failed with status: {}", response.status())));
-    }
-
-    let bytes = response.bytes().await.map_err(|e| {
-        AppError::Generic(format!("Failed to read media response: {}", e))
-    })?;
-
-    std::fs::write(dest, bytes).map_err(|e| {
-        AppError::Generic(format!("Failed to write downloaded file: {}", e))
-    })?;
-
-    Ok(())
-}
-
 #[tauri::command]
 async fn export_media_file(
-    source_path: Option<String>,
+    source_path: String,
     destination_path: String,
-    download_url: Option<String>,
     timestamp: Option<String>,
 ) -> AppResult<()> {
     let dest = std::path::Path::new(&destination_path);
@@ -1153,32 +1112,20 @@ async fn export_media_file(
         let _ = std::fs::create_dir_all(parent);
     }
 
-    if let Some(ref src_str) = source_path {
-        let clean_src = crate::ingestion::media_linker::clean_path(std::path::Path::new(src_str));
-        if clean_src.exists() {
-            std::fs::copy(&clean_src, dest).map_err(|e| {
-                AppError::Generic(format!("Failed to copy file to destination: {}", e))
-            })?;
-        } else if let Some(ref url) = download_url {
-            download_file_to_path(url, dest).await?;
-        } else {
-            return Err(AppError::Generic(format!("Source file does not exist: {:?}", clean_src)));
-        }
-    } else if let Some(ref url) = download_url {
-        download_file_to_path(url, dest).await?;
+    let clean_src = crate::ingestion::media_linker::clean_path(std::path::Path::new(&source_path));
+    if clean_src.exists() {
+        std::fs::copy(&clean_src, dest).map_err(|e| {
+            AppError::Generic(format!("Failed to copy file to destination: {}", e))
+        })?;
     } else {
-        return Err(AppError::Generic("No source path or download URL provided".to_string()));
+        return Err(AppError::Generic(format!("Source file does not exist: {:?}", clean_src)));
     }
 
     // Set modification time if timestamp provided
     if let Some(ref ts_str) = timestamp {
         if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(ts_str) {
-            let system_time = std::time::SystemTime::UNIX_EPOCH
-                + std::time::Duration::from_secs(dt.timestamp().max(0) as u64);
-            if let Ok(file) = std::fs::File::options().write(true).open(dest) {
-                let times = std::fs::FileTimes::new().set_modified(system_time);
-                let _ = file.set_times(times);
-            }
+            let ft = filetime::FileTime::from_unix_time(dt.timestamp(), 0);
+            let _ = filetime::set_file_times(dest, ft, ft);
         }
     }
 
@@ -1280,8 +1227,7 @@ pub fn run() {
             set_storage_path,
             get_storage_path,
             check_disk_space,
-            download_memory,
-            download_all_memories,
+            export_memories,
             show_in_folder,
             export_media_file,
             get_conversation_media
